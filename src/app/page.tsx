@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { AgentRoster } from "@/components/AgentRoster";
 import { VaultPanel } from "@/components/VaultPanel";
 import { DispatchPanel } from "@/components/DispatchPanel";
@@ -86,6 +87,17 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <nav className="flex items-center gap-1 mr-4">
+              <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">
+                Dashboard
+              </span>
+              <Link
+                href="/assistant"
+                className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30 transition-colors"
+              >
+                Assistant
+              </Link>
+            </nav>
             <button
               onClick={() => {
                 loadAgents();

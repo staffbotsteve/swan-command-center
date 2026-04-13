@@ -19,6 +19,7 @@ const ROLE_ICONS: Record<string, string> = {
   Operations: "\u2699\uFE0F",
   Legal: "\u2696\uFE0F",
   Developer: "\u{1F4BB}",
+  Research: "\u{1F50D}",
 };
 
 // Map agent name prefix to company
@@ -41,7 +42,7 @@ function getCompany(name: string): string {
 }
 
 function getRole(name: string): string {
-  for (const role of ["CEO", "Marketing", "Operations", "Legal", "Developer"]) {
+  for (const role of ["CEO", "Marketing", "Operations", "Legal", "Developer", "Research"]) {
     if (name.includes(role)) return role;
   }
   return "";
@@ -113,7 +114,7 @@ export function AgentRoster({
   }
 
   // Sort agents within each group: CEO first, then alphabetical
-  const roleOrder = ["CEO", "Marketing", "Operations", "Legal", "Developer"];
+  const roleOrder = ["CEO", "Marketing", "Operations", "Legal", "Developer", "Research"];
   for (const company of Object.keys(groups)) {
     groups[company].sort((a, b) => {
       const aRole = roleOrder.indexOf(getRole(a.name));
