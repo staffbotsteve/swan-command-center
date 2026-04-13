@@ -22,6 +22,13 @@ export interface VaultProject {
   context?: string;
 }
 
+export interface VaultCompany {
+  name: string;
+  path: string;
+  context?: string;
+  projects: VaultProject[];
+}
+
 export interface VaultSession {
   name: string;
   path: string;
@@ -53,20 +60,52 @@ async function readFile(path: string): Promise<string> {
   return Buffer.from(data.content, "base64").toString("utf-8");
 }
 
-export async function listProjects(): Promise<VaultProject[]> {
+export async function listCompanies(): Promise<VaultCompany[]> {
   const dirs = await listDir("01-Projects");
-  const projects: VaultProject[] = [];
+  const companies: VaultCompany[] = [];
+
   for (const dir of dirs) {
     if (dir.name.startsWith(".") || dir.name.startsWith("{")) continue;
+
+    // Read company-level CONTEXT.md
     let context: string | undefined;
     try {
       context = await readFile(`01-Projects/${dir.name}/CONTEXT.md`);
     } catch {
       // no context file
     }
-    projects.push({ name: dir.name, path: dir.path, context });
+
+    // Discover project sub-folders
+    const subDirs = await listDir(`01-Projects/${dir.name}`);
+    const projects: VaultProject[] = [];
+
+    for (const sub of subDirs) {
+      if (sub.name === "CONTEXT.md" || sub.name.startsWith(".")) continue;
+      // It's a project sub-folder
+      let projContext: string | undefined;
+      try {
+        projContext = await readFile(
+          `01-Projects/${dir.name}/${sub.name}/CONTEXT.md`
+        );
+      } catch {
+        // no context file
+      }
+      projects.push({
+        name: sub.name,
+        path: sub.path,
+        context: projContext,
+      });
+    }
+
+    companies.push({
+      name: dir.name,
+      path: dir.path,
+      context,
+      projects,
+    });
   }
-  return projects;
+
+  return companies;
 }
 
 export async function listSessions(
@@ -100,8 +139,4 @@ export async function getSessionContent(
   path: string
 ): Promise<string> {
   return readFile(path);
-}
-
-export async function listDailies(): Promise<VaultFile[]> {
-  return listDir("04-Daily");
 }

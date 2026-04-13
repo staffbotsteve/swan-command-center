@@ -8,6 +8,13 @@ interface Project {
   context?: string;
 }
 
+interface Company {
+  name: string;
+  path: string;
+  context?: string;
+  projects: Project[];
+}
+
 interface VaultSession {
   name: string;
   path: string;
@@ -22,20 +29,26 @@ const SOURCE_BADGES: Record<string, string> = {
 };
 
 export function VaultPanel({
-  projects,
+  companies,
   sessions,
   loading,
   error,
   onSessionSelect,
 }: {
-  projects: Project[];
+  companies: Company[];
   sessions: VaultSession[];
   loading: boolean;
   error: string | null;
   onSessionSelect: (s: VaultSession) => void;
 }) {
-  const [tab, setTab] = useState<"projects" | "sessions">("projects");
+  const [tab, setTab] = useState<"companies" | "sessions">("companies");
+  const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
+
+  const totalProjects = companies.reduce(
+    (sum, c) => sum + c.projects.length,
+    0
+  );
 
   if (loading) {
     return (
@@ -74,14 +87,14 @@ export function VaultPanel({
       {/* Tabs */}
       <div className="flex gap-1 mb-4">
         <button
-          onClick={() => setTab("projects")}
+          onClick={() => setTab("companies")}
           className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-            tab === "projects"
+            tab === "companies"
               ? "bg-accent/20 text-accent"
               : "text-muted hover:text-foreground"
           }`}
         >
-          Projects ({projects.length})
+          Companies ({companies.length}) / Projects ({totalProjects})
         </button>
         <button
           onClick={() => setTab("sessions")}
@@ -95,39 +108,80 @@ export function VaultPanel({
         </button>
       </div>
 
-      {/* Projects */}
-      {tab === "projects" && (
-        <div className="space-y-2">
-          {projects.map((p) => (
-            <div key={p.name}>
+      {/* Companies & Projects */}
+      {tab === "companies" && (
+        <div className="space-y-1">
+          {companies.map((c) => (
+            <div key={c.name}>
+              {/* Company header */}
               <button
                 onClick={() =>
-                  setExpandedProject(
-                    expandedProject === p.name ? null : p.name
+                  setExpandedCompany(
+                    expandedCompany === c.name ? null : c.name
                   )
                 }
                 className="w-full text-left px-3 py-2.5 rounded hover:bg-card-border/30 transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {p.name.replace(/-/g, " ")}
+                  <span className="text-sm font-semibold">
+                    {c.name.replace(/-/g, " ")}
                   </span>
-                  <span className="text-xs text-muted">
-                    {expandedProject === p.name ? "v" : ">"}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    {c.projects.length > 0 && (
+                      <span className="text-[10px] font-mono text-muted px-1.5 py-0.5 bg-card-border/40 rounded">
+                        {c.projects.length} project
+                        {c.projects.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    <span className="text-xs text-muted">
+                      {expandedCompany === c.name ? "\u25BC" : "\u25B6"}
+                    </span>
+                  </div>
                 </div>
               </button>
-              {expandedProject === p.name && p.context && (
-                <div className="mx-3 mb-2 px-3 py-2 bg-card border border-card-border rounded">
-                  <pre className="text-xs text-muted whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
-                    {p.context}
-                  </pre>
+
+              {/* Expanded: show projects */}
+              {expandedCompany === c.name && (
+                <div className="ml-3 border-l border-card-border pl-2 mb-2">
+                  {c.projects.map((p) => (
+                    <div key={p.path}>
+                      <button
+                        onClick={() =>
+                          setExpandedProject(
+                            expandedProject === p.path ? null : p.path
+                          )
+                        }
+                        className="w-full text-left px-3 py-2 rounded hover:bg-card-border/30 transition-colors"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm">
+                            {p.name.replace(/-/g, " ")}
+                          </span>
+                          <span className="text-xs text-muted">
+                            {expandedProject === p.path ? "\u25BC" : "\u25B6"}
+                          </span>
+                        </div>
+                      </button>
+                      {expandedProject === p.path && p.context && (
+                        <div className="mx-3 mb-2 px-3 py-2 bg-card border border-card-border rounded">
+                          <pre className="text-xs text-muted whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                            {p.context}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {c.projects.length === 0 && (
+                    <p className="text-xs text-muted px-3 py-2">
+                      No sub-projects
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           ))}
-          {projects.length === 0 && (
-            <p className="text-sm text-muted">No projects in vault</p>
+          {companies.length === 0 && (
+            <p className="text-sm text-muted">No companies in vault</p>
           )}
         </div>
       )}

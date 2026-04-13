@@ -18,6 +18,13 @@ interface Project {
   context?: string;
 }
 
+interface Company {
+  name: string;
+  path: string;
+  context?: string;
+  projects: Project[];
+}
+
 interface VaultSession {
   name: string;
   path: string;
@@ -27,7 +34,7 @@ interface VaultSession {
 
 export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [sessions, setSessions] = useState<VaultSession[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedSession, setSelectedSession] = useState<VaultSession | null>(null);
@@ -58,7 +65,7 @@ export default function Dashboard() {
       const res = await fetch("/api/vault");
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setProjects(data.projects ?? []);
+      setCompanies(data.companies ?? []);
       setSessions(data.sessions ?? []);
     } catch (e: unknown) {
       setVaultError(e instanceof Error ? e.message : "Failed to load vault");
@@ -132,7 +139,7 @@ export default function Dashboard() {
             />
           ) : (
             <VaultPanel
-              projects={projects}
+              companies={companies}
               sessions={sessions}
               loading={vaultLoading}
               error={vaultError}
