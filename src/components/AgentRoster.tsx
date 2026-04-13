@@ -11,15 +11,19 @@ const MODEL_BADGES: Record<string, { label: string; color: string }> = {
   "claude-sonnet-4-6": { label: "Sonnet", color: "bg-blue-500/20 text-blue-300" },
 };
 
-const COMPANY_MAP: Record<string, string> = {
-  "Providence": "Providence Fire & Rescue",
-  "e2s": "e2s Holdings",
-  "Swan": "Swan Ventures",
-};
+const COMPANY_RULES: [string, string][] = [
+  ["SwanBill", "SwanBill LLC"],
+  ["Providence", "Providence Fire & Rescue"],
+  ["E2S Transport", "E2S Transportation LLC"],
+  ["E2S Properties AZ", "E2S Properties AZ LLC"],
+  ["E2S Properties", "e2s Properties LLC"],
+  ["Daily Rollup", "Operations"],
+];
 
 function getCompany(name: string): string {
-  for (const [key, val] of Object.entries(COMPANY_MAP)) {
-    if (name.toLowerCase().includes(key.toLowerCase())) return val;
+  const lower = name.toLowerCase();
+  for (const [key, label] of COMPANY_RULES) {
+    if (lower.includes(key.toLowerCase())) return label;
   }
   return "Other";
 }
