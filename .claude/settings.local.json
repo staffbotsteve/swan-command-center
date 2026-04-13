@@ -46,7 +46,13 @@
       "Bash(mkdir -p 01-Projects/SwanBill-LLC/Project-Falcon)",
       "Bash(mkdir -p 01-Projects/SwanBill-LLC/SOSFiler)",
       "Bash(mkdir -p 01-Projects/SwanBill-LLC/PermitVantage)",
-      "Bash(mkdir -p 01-Projects/SwanBill-LLC/OZ-Lease-Scout)"
+      "Bash(mkdir -p 01-Projects/SwanBill-LLC/OZ-Lease-Scout)",
+      "Bash(mv 01-Projects/SwanBill-LLC/Sleepy-Storybook 01-Projects/Sleepy-Storybook)",
+      "Bash(mv 01-Projects/SwanBill-LLC/Project-Falcon 01-Projects/Project-Falcon)",
+      "Bash(mv 01-Projects/SwanBill-LLC/SOSFiler 01-Projects/SOSFiler)",
+      "Bash(mv 01-Projects/SwanBill-LLC/PermitVantage 01-Projects/PermitVantage)",
+      "Bash(mv 01-Projects/SwanBill-LLC/OZ-Lease-Scout 01-Projects/OZ-Lease-Scout)",
+      "Bash(env)"
     ]
   }
 }

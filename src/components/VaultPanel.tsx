@@ -5,14 +5,8 @@ import { useState } from "react";
 interface Project {
   name: string;
   path: string;
+  company?: string;
   context?: string;
-}
-
-interface Company {
-  name: string;
-  path: string;
-  context?: string;
-  projects: Project[];
 }
 
 interface VaultSession {
@@ -28,27 +22,49 @@ const SOURCE_BADGES: Record<string, string> = {
   "Managed-Agents": "bg-purple-500/20 text-purple-300",
 };
 
+const COMPANY_COLORS: Record<string, string> = {
+  "SwanBill LLC": "bg-blue-500/20 text-blue-300",
+  "Providence Fire & Rescue Inc.": "bg-red-500/20 text-red-300",
+  "E2S Transportation LLC": "bg-cyan-500/20 text-cyan-300",
+  "E2S Properties AZ LLC": "bg-amber-500/20 text-amber-300",
+  "e2s Properties LLC": "bg-orange-500/20 text-orange-300",
+  "e2s Hospitality California LLC": "bg-pink-500/20 text-pink-300",
+  "e2s Hospitality NV LLC": "bg-violet-500/20 text-violet-300",
+};
+
+function companyBadge(company?: string): string {
+  if (!company) return "bg-gray-500/20 text-gray-300";
+  return COMPANY_COLORS[company] ?? "bg-gray-500/20 text-gray-300";
+}
+
+function shortCompany(company?: string): string {
+  if (!company) return "";
+  return company
+    .replace(" LLC", "")
+    .replace(" Inc.", "")
+    .replace("e2s Hospitality California", "Hosp CA")
+    .replace("e2s Hospitality NV", "Hosp NV")
+    .replace("E2S Properties AZ", "E2S AZ")
+    .replace("e2s Properties", "E2S Props")
+    .replace("E2S Transportation", "E2S Transport")
+    .replace("Providence Fire & Rescue", "Providence");
+}
+
 export function VaultPanel({
-  companies,
+  projects,
   sessions,
   loading,
   error,
   onSessionSelect,
 }: {
-  companies: Company[];
+  projects: Project[];
   sessions: VaultSession[];
   loading: boolean;
   error: string | null;
   onSessionSelect: (s: VaultSession) => void;
 }) {
-  const [tab, setTab] = useState<"companies" | "sessions">("companies");
-  const [expandedCompany, setExpandedCompany] = useState<string | null>(null);
+  const [tab, setTab] = useState<"projects" | "sessions">("projects");
   const [expandedProject, setExpandedProject] = useState<string | null>(null);
-
-  const totalProjects = companies.reduce(
-    (sum, c) => sum + c.projects.length,
-    0
-  );
 
   if (loading) {
     return (
@@ -87,14 +103,14 @@ export function VaultPanel({
       {/* Tabs */}
       <div className="flex gap-1 mb-4">
         <button
-          onClick={() => setTab("companies")}
+          onClick={() => setTab("projects")}
           className={`px-3 py-1.5 text-xs font-medium rounded transition-colors ${
-            tab === "companies"
+            tab === "projects"
               ? "bg-accent/20 text-accent"
               : "text-muted hover:text-foreground"
           }`}
         >
-          Companies ({companies.length}) / Projects ({totalProjects})
+          Projects ({projects.length})
         </button>
         <button
           onClick={() => setTab("sessions")}
@@ -108,80 +124,50 @@ export function VaultPanel({
         </button>
       </div>
 
-      {/* Companies & Projects */}
-      {tab === "companies" && (
+      {/* Projects */}
+      {tab === "projects" && (
         <div className="space-y-1">
-          {companies.map((c) => (
-            <div key={c.name}>
-              {/* Company header */}
+          {projects.map((p) => (
+            <div key={p.name}>
               <button
                 onClick={() =>
-                  setExpandedCompany(
-                    expandedCompany === c.name ? null : c.name
+                  setExpandedProject(
+                    expandedProject === p.name ? null : p.name
                   )
                 }
                 className="w-full text-left px-3 py-2.5 rounded hover:bg-card-border/30 transition-colors"
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold">
-                    {c.name.replace(/-/g, " ")}
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium truncate">
+                    {p.name.replace(/-/g, " ")}
                   </span>
-                  <div className="flex items-center gap-2">
-                    {c.projects.length > 0 && (
-                      <span className="text-[10px] font-mono text-muted px-1.5 py-0.5 bg-card-border/40 rounded">
-                        {c.projects.length} project
-                        {c.projects.length !== 1 ? "s" : ""}
+                  <div className="flex items-center gap-1.5">
+                    {p.company && (
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0 ${companyBadge(
+                          p.company
+                        )}`}
+                      >
+                        {shortCompany(p.company)}
                       </span>
                     )}
                     <span className="text-xs text-muted">
-                      {expandedCompany === c.name ? "\u25BC" : "\u25B6"}
+                      {expandedProject === p.name ? "\u25BC" : "\u25B6"}
                     </span>
                   </div>
                 </div>
               </button>
-
-              {/* Expanded: show projects */}
-              {expandedCompany === c.name && (
-                <div className="ml-3 border-l border-card-border pl-2 mb-2">
-                  {c.projects.map((p) => (
-                    <div key={p.path}>
-                      <button
-                        onClick={() =>
-                          setExpandedProject(
-                            expandedProject === p.path ? null : p.path
-                          )
-                        }
-                        className="w-full text-left px-3 py-2 rounded hover:bg-card-border/30 transition-colors"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm">
-                            {p.name.replace(/-/g, " ")}
-                          </span>
-                          <span className="text-xs text-muted">
-                            {expandedProject === p.path ? "\u25BC" : "\u25B6"}
-                          </span>
-                        </div>
-                      </button>
-                      {expandedProject === p.path && p.context && (
-                        <div className="mx-3 mb-2 px-3 py-2 bg-card border border-card-border rounded">
-                          <pre className="text-xs text-muted whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
-                            {p.context}
-                          </pre>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {c.projects.length === 0 && (
-                    <p className="text-xs text-muted px-3 py-2">
-                      No sub-projects
-                    </p>
-                  )}
+              {expandedProject === p.name && p.context && (
+                <div className="mx-3 mb-2 px-3 py-2 bg-card border border-card-border rounded">
+                  <pre className="text-xs text-muted whitespace-pre-wrap leading-relaxed max-h-64 overflow-y-auto">
+                    {p.context}
+                  </pre>
                 </div>
               )}
             </div>
           ))}
-          {companies.length === 0 && (
-            <p className="text-sm text-muted">No companies in vault</p>
+          {projects.length === 0 && (
+            <p className="text-sm text-muted">No projects in vault</p>
           )}
         </div>
       )}

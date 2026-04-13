@@ -19,14 +19,8 @@ export interface VaultFile {
 export interface VaultProject {
   name: string;
   path: string;
+  company?: string;
   context?: string;
-}
-
-export interface VaultCompany {
-  name: string;
-  path: string;
-  context?: string;
-  projects: VaultProject[];
 }
 
 export interface VaultSession {
@@ -60,52 +54,36 @@ async function readFile(path: string): Promise<string> {
   return Buffer.from(data.content, "base64").toString("utf-8");
 }
 
-export async function listCompanies(): Promise<VaultCompany[]> {
+function extractCompany(context: string): string | undefined {
+  const match = context.match(/\*\*Company:\*\*\s*(.+)/);
+  return match?.[1]?.trim();
+}
+
+export async function listProjects(): Promise<VaultProject[]> {
   const dirs = await listDir("01-Projects");
-  const companies: VaultCompany[] = [];
+  const projects: VaultProject[] = [];
 
   for (const dir of dirs) {
     if (dir.name.startsWith(".") || dir.name.startsWith("{")) continue;
 
-    // Read company-level CONTEXT.md
     let context: string | undefined;
+    let company: string | undefined;
     try {
       context = await readFile(`01-Projects/${dir.name}/CONTEXT.md`);
+      company = extractCompany(context);
     } catch {
       // no context file
     }
 
-    // Discover project sub-folders
-    const subDirs = await listDir(`01-Projects/${dir.name}`);
-    const projects: VaultProject[] = [];
-
-    for (const sub of subDirs) {
-      if (sub.name === "CONTEXT.md" || sub.name.startsWith(".")) continue;
-      // It's a project sub-folder
-      let projContext: string | undefined;
-      try {
-        projContext = await readFile(
-          `01-Projects/${dir.name}/${sub.name}/CONTEXT.md`
-        );
-      } catch {
-        // no context file
-      }
-      projects.push({
-        name: sub.name,
-        path: sub.path,
-        context: projContext,
-      });
-    }
-
-    companies.push({
+    projects.push({
       name: dir.name,
       path: dir.path,
+      company,
       context,
-      projects,
     });
   }
 
-  return companies;
+  return projects;
 }
 
 export async function listSessions(
