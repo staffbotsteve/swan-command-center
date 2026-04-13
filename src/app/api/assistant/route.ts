@@ -111,6 +111,6 @@ function getDefaults() {
       defaultReplySpeed: "within 2 hours",
     },
     instructions: "",
-    companyInstructions: {},
+    agentInstructions: {},
   };
 }
