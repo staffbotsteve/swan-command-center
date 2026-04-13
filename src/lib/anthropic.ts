@@ -27,16 +27,29 @@ export interface Session {
 }
 
 export async function listAgents(): Promise<Agent[]> {
-  const res = await fetch(`${API_BASE}/agents`, {
-    headers: headers(),
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Failed to list agents: ${res.status} ${err}`);
+  const allAgents: Agent[] = [];
+  let url = `${API_BASE}/agents?limit=100`;
+
+  while (url) {
+    const res = await fetch(url, {
+      headers: headers(),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Failed to list agents: ${res.status} ${err}`);
+    }
+    const data = await res.json();
+    allAgents.push(...(data.data ?? data.agents ?? []));
+
+    if (data.has_more && data.next_page) {
+      url = `${API_BASE}/agents?limit=100&after=${data.next_page}`;
+    } else {
+      url = "";
+    }
   }
-  const data = await res.json();
-  return data.data ?? data.agents ?? [];
+
+  return allAgents;
 }
 
 export async function getAgent(agentId: string): Promise<Agent> {
