@@ -122,3 +122,31 @@ export async function getSession(sessionId: string): Promise<Session> {
   if (!res.ok) throw new Error(`Failed to get session: ${res.status}`);
   return res.json();
 }
+
+export async function createAgent(params: {
+  name: string;
+  model: string;
+  system?: string;
+}): Promise<Agent> {
+  const res = await fetch(`${API_BASE}/agents`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(params),
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`createAgent failed: ${res.status} ${err}`);
+  }
+  return res.json();
+}
+
+export async function archiveAgent(agentId: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/agents/${agentId}`, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  if (!res.ok && res.status !== 404) {
+    const err = await res.text();
+    throw new Error(`archiveAgent failed: ${res.status} ${err}`);
+  }
+}
