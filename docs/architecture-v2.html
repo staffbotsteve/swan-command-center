@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Swan Command Center — v2 Architecture</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #0a0d12;
+    --panel: #11151c;
+    --panel-2: #161b24;
+    --border: #242a35;
+    --border-2: #2e3542;
+    --text: #e8edf4;
+    --muted: #7d8698;
+    --dim: #4d5666;
+    --accent: #7c9cff;
+    --accent-2: #6ee7b7;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --purple: #c084fc;
+    --blue: #60a5fa;
+    --cyan: #5eead4;
+    --orange: #fb923c;
+    --pink: #f472b6;
+    --phase1: #6ee7b7;
+    --phase2: #fbbf24;
+    --phase3: #c084fc;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  body { padding: 48px 32px 96px; max-width: 1320px; margin: 0 auto; }
+  h1 { font-size: 32px; letter-spacing: -0.02em; margin: 0 0 6px; font-weight: 700; }
+  .subtitle { color: var(--muted); font-size: 14px; margin: 0 0 4px; }
+  .meta { color: var(--dim); font-size: 12px; font-family: ui-monospace, 'SF Mono', Monaco, monospace; margin-bottom: 48px; }
+  h2 { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted); margin: 48px 0 14px; font-weight: 600; }
+  h2:first-of-type { margin-top: 0; }
+  .row { display: grid; gap: 14px; }
+  .row-5 { grid-template-columns: repeat(5, 1fr); }
+  .row-6 { grid-template-columns: repeat(6, 1fr); }
+  .row-3 { grid-template-columns: repeat(3, 1fr); }
+  .row-4 { grid-template-columns: repeat(4, 1fr); }
+  .row-2 { grid-template-columns: 1fr 1fr; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 14px 14px; }
+  .card.em { background: var(--panel-2); border-color: var(--border-2); }
+  .card .label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 6px; font-weight: 600; }
+  .card .title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .card .desc { font-size: 12px; color: var(--muted); line-height: 1.45; }
+  .card .icon { font-size: 18px; margin-bottom: 8px; display: block; }
+  .tag { display: inline-block; font-size: 10px; font-family: ui-monospace, monospace; padding: 2px 7px; border-radius: 4px; background: rgba(124,156,255,0.14); color: var(--accent); margin-right: 4px; margin-top: 6px; }
+  .tag.phase1 { background: rgba(110,231,183,0.14); color: var(--phase1); }
+  .tag.phase2 { background: rgba(251,191,36,0.14); color: var(--phase2); }
+  .tag.phase3 { background: rgba(192,132,252,0.14); color: var(--phase3); }
+  .tag.dim { background: rgba(125,134,152,0.12); color: var(--muted); }
+  .arrow { text-align: center; color: var(--dim); font-size: 18px; margin: 8px 0; letter-spacing: 6px; }
+  .layer-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.16em; margin-bottom: 10px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .layer-label::before { content: ''; width: 20px; height: 1px; background: var(--border-2); }
+  .layer-label::after { content: ''; flex: 1; height: 1px; background: var(--border-2); }
+  .agent-card { position: relative; padding-top: 22px; }
+  .agent-model { position: absolute; top: 10px; right: 12px; font-size: 9px; font-family: ui-monospace, monospace; padding: 2px 6px; border-radius: 3px; }
+  .agent-model.opus { background: rgba(192,132,252,0.18); color: var(--purple); }
+  .agent-model.sonnet { background: rgba(96,165,250,0.18); color: var(--blue); }
+  .agent-model.haiku { background: rgba(94,234,212,0.18); color: var(--cyan); }
+  .toolbelt { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border-2); display: flex; flex-wrap: wrap; gap: 4px; }
+  .toolbelt .tool { font-size: 10px; padding: 3px 6px; border-radius: 4px; background: rgba(124,156,255,0.10); color: var(--accent); font-family: ui-monospace, monospace; border: 1px solid rgba(124,156,255,0.18); }
+  .toolbelt .tool.hero { background: rgba(251,191,36,0.12); color: var(--warn); border-color: rgba(251,191,36,0.25); font-weight: 600; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .pill { font-size: 10px; font-family: ui-monospace, monospace; padding: 3px 7px; border: 1px solid var(--border-2); border-radius: 999px; color: var(--muted); }
+  .pill.ok { border-color: rgba(110,231,183,0.3); color: var(--phase1); }
+  .pill.warn { border-color: rgba(251,191,36,0.3); color: var(--warn); }
+  .eliminated { position: relative; opacity: 0.55; }
+  .eliminated::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top right, transparent 49%, var(--danger) 49%, var(--danger) 51%, transparent 51%); border-radius: 10px; pointer-events: none; }
+  .elim-note { color: var(--danger); font-size: 11px; font-weight: 600; margin-bottom: 6px; font-family: ui-monospace, monospace; }
+  .phase-strip { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .phase { padding: 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
+  .phase-1 { border-left: 3px solid var(--phase1); }
+  .phase-2 { border-left: 3px solid var(--phase2); }
+  .phase-3 { border-left: 3px solid var(--phase3); }
+  .phase h3 { margin: 0 0 4px; font-size: 13px; font-weight: 600; }
+  .phase .when { font-family: ui-monospace, monospace; font-size: 10px; color: var(--muted); margin-bottom: 10px; }
+  .phase ul { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .footer-note { margin-top: 48px; padding: 16px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .footer-note strong { color: var(--text); }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-bottom: 24px; font-family: ui-monospace, monospace; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 2px; }
+  .dot.p1 { background: var(--phase1); }
+  .dot.p2 { background: var(--phase2); }
+  .dot.p3 { background: var(--phase3); }
+  .dot.elim { background: var(--danger); }
+  .memory-split { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: stretch; }
+  .memory-side { padding: 16px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border); }
+  .memory-side h4 { margin: 0 0 4px; font-size: 13px; }
+  .memory-side .sub { font-size: 11px; color: var(--muted); margin-bottom: 10px; font-family: ui-monospace, monospace; }
+  .memory-side ul { margin: 0; padding-left: 16px; font-size: 12px; color: var(--muted); line-height: 1.6; }
+  .bridge { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--dim); font-size: 10px; font-family: ui-monospace, monospace; letter-spacing: 0.14em; text-transform: uppercase; }
+  .bridge .arr { font-size: 16px; margin: 4px 0; color: var(--accent-2); letter-spacing: 0; }
+  .promo-flow { display: grid; grid-template-columns: 1fr 20px 1fr 20px 1fr 20px 1fr; align-items: center; gap: 8px; margin: 20px 0; }
+  .promo-step { padding: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; text-align: center; }
+  .promo-step .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.16em; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  .promo-step .hd { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .promo-step .sub { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .promo-step.start { border-left: 3px solid var(--phase2); }
+  .promo-step.middle { border-left: 3px solid var(--warn); }
+  .promo-step.gate { border-left: 3px solid var(--accent); }
+  .promo-step.done { border-left: 3px solid var(--phase1); }
+  .promo-arrow { text-align: center; color: var(--accent-2); font-size: 20px; }
+  .registry-mock { background: var(--panel-2); border: 1px solid var(--border-2); border-radius: 10px; padding: 16px; margin-top: 12px; }
+  .registry-mock .mock-tabs { display: flex; gap: 16px; margin-bottom: 12px; font-size: 12px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+  .registry-mock .tab-active { color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 7px; margin-bottom: -9px; font-weight: 600; }
+  .registry-mock .tab { color: var(--muted); }
+  .reg-row { display: grid; grid-template-columns: 2fr 1.5fr 1fr 1fr 1fr auto; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12px; align-items: center; }
+  .reg-row:last-child { border-bottom: none; }
+  .reg-row .n { font-family: ui-monospace, monospace; color: var(--text); }
+  .reg-row .m { color: var(--muted); font-size: 11px; }
+  .status-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; font-family: ui-monospace, monospace; }
+  .s-exp { background: rgba(251,191,36,0.14); color: var(--warn); }
+  .s-std { background: rgba(110,231,183,0.14); color: var(--phase1); }
+  .s-pend { background: rgba(124,156,255,0.14); color: var(--accent); }
+  .s-arch { background: rgba(125,134,152,0.12); color: var(--muted); }
+  .mini-btn { font-size: 10px; padding: 3px 8px; border-radius: 4px; background: rgba(124,156,255,0.14); color: var(--accent); font-family: ui-monospace, monospace; border: none; }
+</style>
+</head>
+<body>
+
+<h1>Swan Command Center — v2 Architecture</h1>
+<p class="subtitle">Cloud Managed Agents · Function-first shared departments · Multi-channel · Hybrid memory · Self-extending with audit</p>
+<p class="meta">rev 2026-04-23 · owner: sactoswan@gmail.com · 8 LLCs · personal-only access</p>
+
+<div class="legend">
+  <div class="legend-item"><span class="dot p1"></span> Phase 1 — foundation + core loop (~2wk)</div>
+  <div class="legend-item"><span class="dot p2"></span> Phase 2 — channels + sub-agents + curated skills (~1wk)</div>
+  <div class="legend-item"><span class="dot p3"></span> Phase 3 — voice + freeform skill authoring (~2wk)</div>
+  <div class="legend-item"><span class="dot elim"></span> Eliminated / deprecated</div>
+</div>
+
+<!-- LAYER 1: CHANNELS -->
+<div class="layer-label">1 · Channels (inbound)</div>
+<div class="row row-5">
+  <div class="card">
+    <span class="icon">🖥️</span>
+    <div class="title">Dashboard</div>
+    <div class="desc">Next.js on Vercel. Roster, dispatch, memory viewer, hive-mind board, registry, assistant config.</div>
+    <div class="pill-row"><span class="tag phase1">Phase 1</span></div>
+  </div>
+  <div class="card">
+    <span class="icon">✈️</span>
+    <div class="title">Telegram</div>
+    <div class="desc">Mobile-first messaging. Allow-list: your chat ID only. Replaces the remote-CC use cases OpenClaw covered.</div>
+    <div class="pill-row"><span class="tag phase1">Phase 1</span></div>
+  </div>
+  <div class="card">
+    <span class="icon">💬</span>
+    <div class="title">Slack</div>
+    <div class="desc">Bot in your workspace. Channel-based routing hints (<code>#research</code> → Research).</div>
+    <div class="pill-row"><span class="tag phase2">Phase 2</span></div>
+  </div>
+  <div class="card">
+    <span class="icon">📧</span>
+    <div class="title">Email</div>
+    <div class="desc">Resend/Postmark inbound webhook. Long-form briefs and triage delegations.</div>
+    <div class="pill-row"><span class="tag phase2">Phase 2</span></div>
+  </div>
+  <div class="card">
+    <span class="icon">🎙️</span>
+    <div class="title">Voice War Room</div>
+    <div class="desc">Browser room with Pipecat + Gemini Live. PIN-gated. Daily.co for Meet-style calls.</div>
+    <div class="pill-row"><span class="tag phase3">Phase 3</span></div>
+  </div>
+</div>
+
+<div class="arrow">↓  ↓  ↓  ↓  ↓</div>
+
+<!-- LAYER 2: GATEWAY -->
+<div class="layer-label">2 · Gateway — auth · queue · router</div>
+<div class="row row-3">
+  <div class="card em">
+    <span class="icon">🔐</span>
+    <div class="title">Auth &amp; Allow-lists</div>
+    <div class="desc">Personal-only. Google SSO to sactoswan@gmail.com. Per-channel allow-lists. Voice PIN.</div>
+  </div>
+  <div class="card em">
+    <span class="icon">🚦</span>
+    <div class="title">Queue &amp; Concurrency</div>
+    <div class="desc">Per-agent concurrency limits. Project+company tagging on every task. Postgres advisory locks prevent cron/human collisions.</div>
+  </div>
+  <div class="card em">
+    <span class="icon">🧭</span>
+    <div class="title">Router (rules + Triage)</div>
+    <div class="desc">Prefix / slash / channel hints route directly. Ambiguous messages fall through to Main/Triage who delegates.</div>
+  </div>
+</div>
+
+<div class="arrow">↓  ↓  ↓</div>
+
+<!-- LAYER 3: AGENTS + TOOLBELTS -->
+<div class="layer-label">3 · Agents — shared departments · with toolbelts</div>
+<div class="row row-6">
+  <div class="card agent-card">
+    <span class="agent-model haiku">Haiku</span>
+    <div class="label">Triage</div>
+    <div class="title">Main 🧠</div>
+    <div class="desc">Default / fallback agent. Delegates ambiguous messages. Owns war-room conversation.</div>
+    <div class="toolbelt">
+      <span class="tool">dispatch</span>
+      <span class="tool">spawn_subagent</span>
+      <span class="tool">hive_query</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model sonnet">Sonnet</span>
+    <div class="label">Research</div>
+    <div class="title">Research 🔍</div>
+    <div class="desc">Persistent department. Compounds knowledge across all 8 LLCs and projects.</div>
+    <div class="toolbelt">
+      <span class="tool hero">📔 NotebookLM</span>
+      <span class="tool hero">🎬 YouTube</span>
+      <span class="tool">vault_read</span>
+      <span class="tool">vault_write</span>
+      <span class="tool">web_search</span>
+      <span class="tool">spawn_subagent</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model sonnet">Sonnet</span>
+    <div class="label">Comms</div>
+    <div class="title">Comms 📣</div>
+    <div class="desc">Email drafting, replies, VIP screening, message triage.</div>
+    <div class="toolbelt">
+      <span class="tool">gmail</span>
+      <span class="tool">calendar</span>
+      <span class="tool">dispatch</span>
+      <span class="tool">vault_read</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model sonnet">Sonnet</span>
+    <div class="label">Content</div>
+    <div class="title">Content ✍️</div>
+    <div class="desc">Scripts, LinkedIn, X, newsletters, thumbnails.</div>
+    <div class="toolbelt">
+      <span class="tool">image_gen</span>
+      <span class="tool">linkedin</span>
+      <span class="tool">youtube_pub</span>
+      <span class="tool">vault_read</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model sonnet">Sonnet</span>
+    <div class="label">Ops</div>
+    <div class="title">Ops ⚙️</div>
+    <div class="desc">Process work across all 8 LLCs. Finances, vendors, daily rollup.</div>
+    <div class="toolbelt">
+      <span class="tool">vault_read</span>
+      <span class="tool">vault_write</span>
+      <span class="tool">stripe_read</span>
+      <span class="tool">quickbooks</span>
+      <span class="tool">spawn_subagent</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model opus">Opus</span>
+    <div class="label">Legal</div>
+    <div class="title">Legal ⚖️</div>
+    <div class="desc">Higher-stakes reasoning. Entity-specific compliance across LLCs.</div>
+    <div class="toolbelt">
+      <span class="tool">vault_read</span>
+      <span class="tool">doc_parse</span>
+      <span class="tool">web_search</span>
+    </div>
+  </div>
+</div>
+
+<div class="arrow">↓  ↓  ↓</div>
+
+<!-- LAYER 4: MEMORY -->
+<div class="layer-label">4 · Memory — hybrid (hot + durable)</div>
+<div class="memory-split">
+  <div class="memory-side">
+    <h4>🔥 Hot — Supabase / Postgres</h4>
+    <div class="sub">low-latency, queryable, operational</div>
+    <ul>
+      <li>Tasks ledger: <code>(agent_id, project, company, status, parent_task_id)</code></li>
+      <li>Queue &amp; concurrency state</li>
+      <li>Hive-mind: every agent's completed work, cross-readable</li>
+      <li>In-flight session context</li>
+      <li>Unclassified insights &amp; decaying memory with TTLs</li>
+      <li><strong>Registry tables</strong> (agents, skills, plugins) — every create &amp; install logged</li>
+    </ul>
+  </div>
+  <div class="bridge">
+    <div>promote</div>
+    <div class="arr">→</div>
+    <div>weekly cron</div>
+  </div>
+  <div class="memory-side">
+    <h4>📚 Durable — Obsidian vault</h4>
+    <div class="sub">staffbotsteve/swan-vault · version-controlled · human-editable</div>
+    <ul>
+      <li>📌 Pinned memories (cross-agent, all-time)</li>
+      <li>Per-company and per-project briefs</li>
+      <li>Research agent's accumulated knowledge</li>
+      <li>Session summaries (existing vault-write rule)</li>
+      <li>Agent-specific folder auto-injection at session start</li>
+    </ul>
+  </div>
+</div>
+
+<div class="arrow">↓  ↓  ↓</div>
+
+<!-- LAYER 5: TOOLS -->
+<div class="layer-label">5 · Tool fabric — hosted on Vercel, registered as Managed-Agents tools</div>
+<div class="row row-4">
+  <div class="card">
+    <div class="label">Research hero tool</div>
+    <div class="title">📔 NotebookLM Wrapper</div>
+    <div class="desc">Server-side OAuth + NotebookLM-py. List/create notebooks, add sources, query, generate reports, infographics, slide decks, audio.</div>
+    <div class="pill-row"><span class="pill ok">zero API tokens</span><span class="pill">OAuth once</span></div>
+  </div>
+  <div class="card">
+    <div class="label">Research hero tool</div>
+    <div class="title">🎬 YouTube Search</div>
+    <div class="desc">yt-dlp wrapper. Search topics, pull transcripts, auto-populate NotebookLM notebooks on demand.</div>
+  </div>
+  <div class="card">
+    <div class="label">Knowledge I/O</div>
+    <div class="title">🗂️ Vault Read / Write</div>
+    <div class="desc">GitHub Contents API to swan-vault. Read project context + write session summaries per existing rule.</div>
+  </div>
+  <div class="card">
+    <div class="label">Classification</div>
+    <div class="title">🧪 Gemini Flash</div>
+    <div class="desc">Cheap, fast. Tags conversation as fact / preference / context. Routes to memory bucket.</div>
+  </div>
+  <div class="card">
+    <div class="label">Dispatch</div>
+    <div class="title">📬 Outbound Dispatch</div>
+    <div class="desc">Unified <code>dispatch(channel, recipient, payload)</code>. Agents send to Telegram, Slack, Email, or each other.</div>
+  </div>
+  <div class="card">
+    <div class="label">Image gen</div>
+    <div class="title">🎨 Image APIs</div>
+    <div class="desc">Nano-banana / Imagen for thumbnails, infographics, Content creative.</div>
+  </div>
+  <div class="card">
+    <div class="label">Extensibility</div>
+    <div class="title">⚡ spawn_subagent</div>
+    <div class="desc">Creates a short-lived specialist. Depth ≤ 2, TTL 30 min, max 3 concurrent per parent. Every spawn logged.</div>
+  </div>
+  <div class="card">
+    <div class="label">Extensibility</div>
+    <div class="title">🧩 skill_manager</div>
+    <div class="desc"><code>activate_skill(name)</code>, <code>propose_skill(spec)</code>, <code>author_skill_pr(spec)</code>. Every call audited.</div>
+  </div>
+</div>
+
+<div class="arrow">↓  ↓  ↓</div>
+
+<!-- LAYER 6: REGISTRY & PROMOTION -->
+<div class="layer-label">6 · Registry &amp; promotion — every spawn / install / PR logged · ephemeral earns permanence</div>
+
+<div class="row row-3">
+  <div class="card em">
+    <span class="icon">📜</span>
+    <div class="title">Full audit log</div>
+    <div class="desc">Supabase tables <code>agent_registry</code>, <code>skill_registry</code>, <code>plugin_registry</code>, <code>spawn_log</code>, <code>install_log</code>. Every create / activate / PR / approval / archive recorded with who, when, why, outcome, tokens burned.</div>
+  </div>
+  <div class="card em">
+    <span class="icon">🚀</span>
+    <div class="title">Promotion workflow</div>
+    <div class="desc">Ephemeral sub-agent used N times for same purpose → flagged for promotion → you approve in dashboard → becomes a permanent 7th/8th/Nth department agent with model + instructions + tools persisted.</div>
+  </div>
+  <div class="card em">
+    <span class="icon">🛡️</span>
+    <div class="title">Freeform skill authoring (Option Y)</div>
+    <div class="desc">Agent can write a brand-new tool's code and open a PR. Vercel preview builds. You click-approve. Sandboxed runtime + hard spend caps. Starts as <span class="status-chip s-exp">experimental</span>, graduates to <span class="status-chip s-std">standard</span> after N successful runs.</div>
+  </div>
+</div>
+
+<!-- PROMOTION FLOW -->
+<div class="promo-flow">
+  <div class="promo-step start">
+    <div class="lbl">spawn</div>
+    <div class="hd">Ephemeral 🧪</div>
+    <div class="sub">Sub-agent or new skill created by a parent agent. Logged on creation.</div>
+  </div>
+  <div class="promo-arrow">→</div>
+  <div class="promo-step middle">
+    <div class="lbl">observe</div>
+    <div class="hd">Tracked 📊</div>
+    <div class="sub">Usage count, success rate, tokens, parent agents, recurrence accumulate in registry.</div>
+  </div>
+  <div class="promo-arrow">→</div>
+  <div class="promo-step gate">
+    <div class="lbl">review</div>
+    <div class="hd">You decide 🧑‍⚖️</div>
+    <div class="sub">Dashboard surfaces candidates for promotion. One-click approve / archive / extend trial.</div>
+  </div>
+  <div class="promo-arrow">→</div>
+  <div class="promo-step done">
+    <div class="lbl">promoted</div>
+    <div class="hd">Permanent ✅</div>
+    <div class="sub">Promoted to first-class roster member or standard skill. Shows on dashboard alongside Research / Ops / etc.</div>
+  </div>
+</div>
+
+<!-- REGISTRY DASHBOARD MOCK -->
+<div class="registry-mock">
+  <div class="mock-tabs">
+    <span class="tab-active">Agents (6 permanent · 3 ephemeral active · 2 awaiting promotion)</span>
+    <span class="tab">Skills (18 standard · 4 experimental · 1 PR pending)</span>
+    <span class="tab">Plugins (7)</span>
+    <span class="tab">Audit log</span>
+  </div>
+  <div class="reg-row" style="border-bottom: 1px solid var(--border-2); padding-bottom: 10px;">
+    <div class="m">name</div>
+    <div class="m">origin</div>
+    <div class="m">status</div>
+    <div class="m">used</div>
+    <div class="m">last activity</div>
+    <div class="m">actions</div>
+  </div>
+  <div class="reg-row">
+    <div class="n">Research 🔍</div>
+    <div class="m">Phase 1 · standard roster</div>
+    <div><span class="status-chip s-std">permanent</span></div>
+    <div class="n">247</div>
+    <div class="m">2 min ago</div>
+    <div><button class="mini-btn">open</button></div>
+  </div>
+  <div class="reg-row">
+    <div class="n">Tax-Research 📂</div>
+    <div class="m">spawned by Ops · 2026-04-18</div>
+    <div><span class="status-chip s-pend">awaiting promotion</span></div>
+    <div class="n">14 / 14 ✓</div>
+    <div class="m">17 min ago</div>
+    <div><button class="mini-btn">promote</button></div>
+  </div>
+  <div class="reg-row">
+    <div class="n">QB-Reconciler ⚙️</div>
+    <div class="m">spawned by Ops · 2026-04-22</div>
+    <div><span class="status-chip s-exp">ephemeral</span></div>
+    <div class="n">3 / 3 ✓</div>
+    <div class="m">1 hr ago</div>
+    <div><button class="mini-btn">extend</button></div>
+  </div>
+  <div class="reg-row">
+    <div class="n">receipt_ocr (skill)</div>
+    <div class="m">PR authored by Ops · 2026-04-21</div>
+    <div><span class="status-chip s-pend">PR pending</span></div>
+    <div class="n">—</div>
+    <div class="m">yesterday</div>
+    <div><button class="mini-btn">review</button></div>
+  </div>
+</div>
+
+<!-- WHAT'S ELIMINATED -->
+<h2>What's being eliminated</h2>
+<div class="row row-3">
+  <div class="card eliminated">
+    <div class="elim-note">ELIMINATED</div>
+    <div class="title">OpenClaw</div>
+    <div class="desc">Third-party CC harness. Anthropic banned CC-subscription use in 3rd-party harnesses on 2026-04-04. The Telegram bridge replaces its "remote CC from phone" role.</div>
+  </div>
+  <div class="card eliminated">
+    <div class="elim-note">ELIMINATED</div>
+    <div class="title">Paperclip</div>
+    <div class="desc">Deprecated from stack. Any automation or bridge it provided gets re-implemented as a first-party skill in the registry.</div>
+  </div>
+  <div class="card eliminated">
+    <div class="elim-note">COLLAPSED</div>
+    <div class="title">48-agent company-first roster</div>
+    <div class="desc">Current 8×6 structure collapses to 6 shared "department" agents serving every LLC. Cross-company knowledge is now a feature.</div>
+  </div>
+</div>
+
+<!-- PHASING -->
+<h2>Phasing</h2>
+<div class="phase-strip">
+  <div class="phase phase-1">
+    <h3>Phase 1 · Foundation + core loop</h3>
+    <div class="when">~1 focused week elapsed · ~1 day active coding</div>
+    <ul>
+      <li>Google SSO + per-channel allow-lists</li>
+      <li>Collapse roster to 6 shared agents</li>
+      <li>Supabase schema (tasks, hive-mind, memory, registries)</li>
+      <li>Dashboard refactor: roster, memory, hive-mind, registry page</li>
+      <li>Rules-first router + Triage fallback</li>
+      <li>Telegram bridge + allow-list</li>
+      <li>📔 NotebookLM wrapper + OAuth (Research hero tool)</li>
+      <li>🎬 YouTube sub-tool</li>
+      <li>Gemini Flash classifier pipeline</li>
+      <li>Weekly vault-promotion cron</li>
+      <li>Multi-task / multi-project / multi-company tagging</li>
+    </ul>
+  </div>
+  <div class="phase phase-2">
+    <h3>Phase 2 · Channels + curated self-extension</h3>
+    <div class="when">~1 session active coding</div>
+    <ul>
+      <li>Slack bot + Events API webhook</li>
+      <li>Resend / Postmark inbound email</li>
+      <li>Outbound <code>dispatch()</code> for all channels</li>
+      <li><code>spawn_subagent</code> tool + TTL / depth / concurrency guards</li>
+      <li>Curated skill registry + <code>activate_skill</code> / <code>propose_skill</code></li>
+      <li>Agent &amp; skill audit log UI</li>
+      <li>Promotion flow: candidate surfacing + one-click approve</li>
+    </ul>
+  </div>
+  <div class="phase phase-3">
+    <h3>Phase 3 · Voice + freeform skill authoring</h3>
+    <div class="when">~1–2 sessions active coding</div>
+    <ul>
+      <li>Pipecat on Fly.io (~$10/mo)</li>
+      <li>Gemini Live for STT/TTS</li>
+      <li>"Create room" UI + WebSocket + PIN gate</li>
+      <li>Daily.co for Meet-style voice calls</li>
+      <li><code>author_skill_pr</code> — agent writes tool code, opens PR</li>
+      <li>Vercel preview sandbox per new skill</li>
+      <li>Hard per-tool spend caps + rollback</li>
+      <li><em>Pika avatars deferred — "eyewateringly expensive"</em></li>
+    </ul>
+  </div>
+</div>
+
+<!-- DATA FLOW -->
+<h2>Example flow — "@research audit Q2 hospitality performance across NV + CA"</h2>
+<div class="row row-2">
+  <div class="card">
+    <div class="label">1 · Ingress</div>
+    <div class="desc">Telegram webhook → auth checks chat ID → queue accepts → router sees <code>@research</code> prefix → task created with <code>projects=[Hosp NV Q2, Hosp CA Q2]</code>, <code>companies=[Hosp NV, Hosp CA]</code>.</div>
+  </div>
+  <div class="card">
+    <div class="label">2 · Agent work + spawn</div>
+    <div class="desc">Research reads both company folders from vault. Calls NotebookLM to summarize prior Q-over-Q data. Spawns an ephemeral <code>P&amp;L-Analyst</code> sub-agent (logged in <code>spawn_log</code>) to crunch numbers in parallel.</div>
+  </div>
+  <div class="card">
+    <div class="label">3 · Memory + registry</div>
+    <div class="desc">Insights land in Supabase. Hive-mind logs task completion. Sub-agent's 3rd successful run triggers promotion candidate in <code>agent_registry</code> — surfaced on dashboard for you to approve.</div>
+  </div>
+  <div class="card">
+    <div class="label">4 · Response + durable state</div>
+    <div class="desc">Reply dispatched back via Telegram. Weekly cron promotes tagged insights → <code>02-Areas/Research/2026-Q2-hospitality.md</code>. Session summary written per vault-write rule.</div>
+  </div>
+</div>
+
+<div class="footer-note">
+  <strong>Non-goals.</strong> No multi-tenant access. No OpenClaw / Paperclip / third-party CC harnesses. No per-company agent silos. No local Claude Code SDK runtime (uses Managed Agents API). No Pika avatars. No SMS / iMessage (abandoned for Telegram stability and cost). No agent-authored code running outside Vercel preview sandboxes without your PR approval.
+</div>
+
+</body>
+</html>
