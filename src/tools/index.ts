@@ -25,9 +25,9 @@
 // import "./vault-read-file";
 // import "./vault-list-dir";
 // import "./vault-write-file";
-// import "./web-search";
-// import "./classify";
-// import "./dispatch";
+import "./web-search";
+import "./classify";
+import "./dispatch";
 // import "./hive-query";
 // import "./youtube-search";
 // import "./notebooklm";
