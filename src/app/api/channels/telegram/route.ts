@@ -4,7 +4,11 @@ import { sendTelegram } from "@/lib/channels/telegram-send";
 import { runTurn } from "@/lib/anthropic";
 import { markStatus, SpendCapExceeded } from "@/lib/queue";
 import { costUsd } from "@/lib/pricing";
-import { supabase } from "@/lib/supabase";
+
+// When USE_WORKER_RUNTIME=1, this route stops invoking agents inline.
+// The worker process drains the queue via SDK.query() instead. See
+// docs/specs/2026-04-24-option-c-local-sdk.md.
+const USE_WORKER = process.env.USE_WORKER_RUNTIME === "1";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +71,19 @@ export async function POST(req: NextRequest) {
   // Fire-and-forget: drive the agent session and reply asynchronously.
   // Vercel allows background work up to the function timeout; longer tasks
   // would need a queue worker (Phase 2 consideration).
+  // Worker runtime path: enqueue-only. Return immediately; worker
+  // picks up the task from Supabase and handles the turn via the SDK.
+  if (USE_WORKER) {
+    return NextResponse.json({
+      ok: true,
+      task_id,
+      agent: agent.role,
+      rule: decision.rule,
+      runtime: "worker",
+    });
+  }
+
+  // Managed Agents fallback path (Phase 1 runtime).
   void (async () => {
     try {
       await markStatus(task_id, {

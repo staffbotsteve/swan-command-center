@@ -26,11 +26,12 @@ import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import { loadAllAgentDefinitions, ROLE_SPECS, type AgentDefinition } from "../src/lib/agents-config";
 import { sendTelegram } from "../src/lib/channels/telegram-send";
 import type { Task } from "../src/types/db";
+import { buildSwanToolServer, SWAN_TOOL_NAMES } from "./tools";
 
 const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SUPABASE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
-const BASE_URL = requireEnv("CMD_CENTER_BASE_URL");
-const WORKER_SECRET = requireEnv("WORKER_SECRET");
+// CMD_CENTER_BASE_URL + WORKER_SECRET reserved for future HTTP tool fallback
+// (currently tools run in-process via MCP — no Vercel hop needed).
 const POLL_MS = Number(process.env.WORKER_POLL_INTERVAL_MS ?? 1000);
 const MAX_CONC = Number(process.env.WORKER_MAX_CONCURRENCY ?? 3);
 const ENABLED_ROLES = (process.env.WORKER_ENABLED_ROLES ?? Object.keys(ROLE_SPECS).join(","))
@@ -134,7 +135,8 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       model: def.model,
       systemPrompt: def.prompt,
       settingSources: [],
-      allowedTools: [], // tools wired via MCP in worker/tools.ts (landing in Phase C.2)
+      mcpServers: { "swan-tools": buildSwanToolServer() },
+      allowedTools: SWAN_TOOL_NAMES,
     },
   });
 
@@ -214,7 +216,15 @@ async function processOne(task: Task): Promise<void> {
 }
 
 async function main() {
-  console.log(`[worker] starting. base=${BASE_URL} roles=[${ENABLED_ROLES.join(",")}] max_conc=${MAX_CONC}`);
+  // Force Claude Code subscription auth by removing any API key that
+  // leaked in from the environment. The SDK reads ~/.claude/ OAuth
+  // tokens when ANTHROPIC_API_KEY is absent, which is what we want —
+  // zero per-token billing against Steven's Max subscription.
+  if (process.env.ANTHROPIC_API_KEY) {
+    console.log(`[worker] unsetting ANTHROPIC_API_KEY to force CC-subscription auth`);
+    delete process.env.ANTHROPIC_API_KEY;
+  }
+  console.log(`[worker] starting. roles=[${ENABLED_ROLES.join(",")}] max_conc=${MAX_CONC}`);
   agentDefs = await loadAllAgentDefinitions();
   console.log(`[worker] loaded ${Object.keys(agentDefs).length} agent defs`);
 
