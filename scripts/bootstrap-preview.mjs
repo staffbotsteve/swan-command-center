@@ -25,6 +25,7 @@ const SPECS = [
   { role: "content",  display: "Content",  model: "claude-sonnet-4-6",         file: "content.md" },
   { role: "ops",      display: "Ops",      model: "claude-sonnet-4-6",         file: "ops.md" },
   { role: "legal",    display: "Legal",    model: "claude-opus-4-7",           file: "legal.md" },
+  { role: "dev",      display: "Dev",      model: "claude-opus-4-7",           file: "dev.md" },
 ];
 
 async function listAllAgents() {

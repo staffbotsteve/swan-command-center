@@ -36,14 +36,14 @@ Six layers, top to bottom:
 
 1. **Channels** — Dashboard (Phase 1), Telegram (P1), Slack (P2), Email (P2), Voice (P3).
 2. **Gateway** — Auth + per-channel allow-lists, queue with concurrency limits, rules-first router with Triage fallback.
-3. **Agents** — Six department agents (Main/Haiku, Research/Sonnet, Comms/Sonnet, Content/Sonnet, Ops/Sonnet, Legal/Opus).
+3. **Agents** — Seven department agents (Main/Haiku, Research/Sonnet, Comms/Sonnet, Content/Sonnet, Ops/Sonnet, Legal/Opus, Dev/Opus).
 4. **Memory** — Hot store in Supabase (queue, tasks, hive-mind, insights, registries). Durable store in the `staffbotsteve/swan-vault` Obsidian repo (pinned memories, briefs, Research knowledge, session summaries). Weekly cron promotes hot → durable.
 5. **Tool fabric** — Hosted on Vercel as Next.js API routes, registered as Managed-Agents tool definitions: NotebookLM wrapper, YouTube search, vault read/write, Gemini Flash classifier, outbound dispatch, image gen, `spawn_subagent`, `skill_manager`.
 6. **Registry & promotion** — Supabase tables that audit every spawn / activation / PR, with a dashboard surface for reviewing candidates and promoting ephemeral entities to permanent roster or standard skills.
 
 ## 4 · Agents
 
-All six share the same system-prompt skeleton plus a role-specific block. Each agent's system prompt is regenerated on deploy from a Markdown template in `app/src/agents/<role>.md`.
+All seven share the same system-prompt skeleton plus a role-specific block. Each agent's system prompt is regenerated on deploy from a Markdown template in `src/agents/<role>.md`.
 
 | Role     | Model     | Concurrency | Hero tools                                                        |
 | -------- | --------- | ----------- | ----------------------------------------------------------------- |
@@ -53,10 +53,13 @@ All six share the same system-prompt skeleton plus a role-specific block. Each a
 | Content  | Sonnet    | 4           | image_gen, linkedin, youtube_pub, vault_read                      |
 | Ops      | Sonnet    | 6           | vault_read/write, stripe_read, quickbooks, spawn_subagent         |
 | Legal    | Opus      | 3           | vault_read, doc_parse, web_search                                 |
+| Dev      | Opus      | 4           | github, vault_read/write, web_search, shell, spawn_subagent       |
 
 Every agent can call `spawn_subagent`, `activate_skill`, `propose_skill`, `hive_query`, `dispatch`, and `vault_read/write` unless explicitly excluded.
 
-Each agent's permanent-vs-ephemeral status lives in `agent_registry`. The six above are seeded as `status='permanent'`.
+Each agent's permanent-vs-ephemeral status lives in `agent_registry`. The seven above are seeded as `status='permanent'`.
+
+**Dev** was added after the initial design review (2026-04-23 session) once the "who handles coding?" gap surfaced. Dev is explicitly scoped to **async** engineering work (PR review, deploy/CI triage, one-shot fixes from Telegram, writing specs/plans) — it does *not* replace Claude Code in Steven's IDE. Dev has no direct push/merge permission, no production-system writes, no Stripe/QuickBooks access. QA and testing fall under Dev (via `browse`, `/qa`, and `/design-review`-style skills invoked as tools). See `src/agents/dev.md`.
 
 ## 5 · Channels
 

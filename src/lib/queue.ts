@@ -12,6 +12,7 @@ const CAPS: Record<string, number> = {
   content: 4,
   ops: 6,
   legal: 3,
+  dev: 4,
 };
 
 export function resolveConcurrencyCap(role: string): number {
