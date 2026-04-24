@@ -5,6 +5,7 @@ import { useState, useRef } from "react";
 interface Agent {
   id: string;
   name: string;
+  role?: string;
   model: string;
 }
 
