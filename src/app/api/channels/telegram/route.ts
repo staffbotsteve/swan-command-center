@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingest } from "@/lib/ingest";
 import { sendTelegram } from "@/lib/channels/telegram-send";
-import { createSession, sendMessage, streamSession } from "@/lib/anthropic";
+import { runTurn } from "@/lib/anthropic";
 import { markStatus } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
@@ -54,16 +54,23 @@ export async function POST(req: NextRequest) {
         status: "in_flight",
         started_at: new Date().toISOString(),
       });
-      const session = await createSession(agent.id, ENV_ID);
-      await sendMessage(session.id, msg.text);
-      const stream = await streamSession(session.id);
-      const text = await collectText(stream);
-      const reply = text || "(empty response)";
+      const turn = await runTurn(agent.id, ENV_ID, msg.text);
+      if (turn.error) {
+        await sendTelegram(chatId, `⚠️ ${turn.error}`);
+        await markStatus(task_id, {
+          status: "failed",
+          completed_at: new Date().toISOString(),
+          session_id: turn.session_id,
+          output: { error: turn.error, rule: decision.rule },
+        });
+        return;
+      }
+      const reply = turn.text || "(empty response)";
       await sendTelegram(chatId, reply);
       await markStatus(task_id, {
         status: "done",
         completed_at: new Date().toISOString(),
-        session_id: session.id,
+        session_id: turn.session_id,
         output: { text: reply, rule: decision.rule },
       });
     } catch (e) {
@@ -78,32 +85,4 @@ export async function POST(req: NextRequest) {
   })();
 
   return NextResponse.json({ ok: true, task_id, agent: agent.role, rule: decision.rule });
-}
-
-async function collectText(res: Response): Promise<string> {
-  if (!res.body) return "";
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let out = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
-      const json = line.slice(6).trim();
-      if (!json || json === "[DONE]") continue;
-      try {
-        const evt = JSON.parse(json);
-        if (evt.type === "agent.message" && Array.isArray(evt.content)) {
-          for (const block of evt.content) {
-            if (block.type === "text") out += block.text;
-          }
-        }
-      } catch {
-        // skip malformed chunks
-      }
-    }
-  }
-  return out;
 }

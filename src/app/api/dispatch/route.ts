@@ -1,46 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSession, sendMessage, streamSession } from "@/lib/anthropic";
+import { runTurn } from "@/lib/anthropic";
+import { enqueue, markStatus } from "@/lib/queue";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
-
 const ENV_ID = process.env.SWAN_ENV_ID ?? "env_01L4sqBNP3fo5hPLPSTtq7P1";
 
+/**
+ * Dashboard dispatch — POST a task, the route waits for the agent to finish
+ * and returns `{ text, error, session_id, task_id }`. The older SSE approach
+ * was aligned with an earlier shape of the Managed Agents beta; this version
+ * uses the current `runTurn` helper.
+ */
 export async function POST(req: NextRequest) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const { agentId, role, task, project, company } = await req.json();
+  if (!agentId || !task) {
+    return NextResponse.json({ error: "agentId and task required" }, { status: 400 });
+  }
+
+  const row = await enqueue({
+    agent_id: agentId,
+    channel: "dashboard",
+    project,
+    company,
+    input: { text: task, role },
+  });
+
   try {
-    const { agentId, task } = await req.json();
-    if (!agentId || !task) {
-      return NextResponse.json(
-        { error: "agentId and task are required" },
-        { status: 400 }
-      );
+    await markStatus(row.id, { status: "in_flight", started_at: new Date().toISOString() });
+    const turn = await runTurn(agentId, ENV_ID, task);
+
+    if (turn.error) {
+      await markStatus(row.id, {
+        status: "failed",
+        completed_at: new Date().toISOString(),
+        session_id: turn.session_id,
+        output: { error: turn.error },
+      });
+      return NextResponse.json({
+        error: turn.error,
+        task_id: row.id,
+        session_id: turn.session_id,
+      }, { status: 502 });
     }
 
-    // Create session
-    const session = await createSession(agentId, ENV_ID);
+    await markStatus(row.id, {
+      status: "done",
+      completed_at: new Date().toISOString(),
+      session_id: turn.session_id,
+      output: { text: turn.text },
+    });
 
-    // Send the task message
-    await sendMessage(session.id, task);
-
-    // Stream the response back
-    const streamRes = await streamSession(session.id);
-    if (!streamRes.ok) {
-      const err = await streamRes.text();
-      return NextResponse.json(
-        { error: `Stream failed: ${streamRes.status} ${err}` },
-        { status: 502 }
-      );
-    }
-
-    // Forward the SSE stream
-    return new Response(streamRes.body, {
-      headers: {
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-      },
+    return NextResponse.json({
+      text: turn.text,
+      task_id: row.id,
+      session_id: turn.session_id,
     });
   } catch (e: unknown) {
+    await markStatus(row.id, { status: "failed" });
     const msg = e instanceof Error ? e.message : String(e);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: msg, task_id: row.id }, { status: 500 });
   }
 }
