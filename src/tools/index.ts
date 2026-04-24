@@ -22,14 +22,14 @@
 //   - export the ToolDefinition as the default export
 //   - add an explicit entry in the barrel below once landed
 
-// import "./vault-read-file";
-// import "./vault-list-dir";
-// import "./vault-write-file";
+import "./vault-read-file";
+import "./vault-list-dir";
+import "./vault-write-file";
 import "./web-search";
 import "./classify";
 import "./dispatch";
-// import "./hive-query";
-// import "./youtube-search";
+import "./hive-query";
+import "./youtube-search";
 // import "./notebooklm";
 // import "./image-generate";
 // import "./spawn-subagent";
