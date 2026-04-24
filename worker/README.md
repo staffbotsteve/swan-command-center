@@ -42,48 +42,51 @@ shutdown drains in-flight tasks before exit.
 
 ### Keeping it running via LaunchAgent
 
-Create `~/Library/LaunchAgents/com.swan.command-worker.plist`:
+The canonical plist lives at `worker/com.swan.command-worker.plist`.
+It's hardcoded for Steven's nvm-managed Node at
+`/Users/stevenswan/.nvm/versions/node/v24.15.0/bin/node`. If you upgrade
+Node, update that path in both the repo file and
+`~/Library/LaunchAgents/com.swan.command-worker.plist`.
 
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.swan.command-worker</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>/usr/local/bin/npm</string>
-    <string>run</string>
-    <string>worker</string>
-  </array>
-  <key>WorkingDirectory</key>
-  <string>/Users/stevenswan/project-folders/swan-command-center/app</string>
-  <key>EnvironmentVariables</key>
-  <dict>
-    <key>PATH</key>
-    <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
-  </dict>
-  <key>RunAtLoad</key><true/>
-  <key>KeepAlive</key><true/>
-  <key>StandardOutPath</key>
-  <string>/Users/stevenswan/Library/Logs/swan-command-worker.log</string>
-  <key>StandardErrorPath</key>
-  <string>/Users/stevenswan/Library/Logs/swan-command-worker.err.log</string>
-</dict>
-</plist>
-```
-
-Load it:
+Install:
 
 ```
-launchctl load ~/Library/LaunchAgents/com.swan.command-worker.plist
+cp worker/com.swan.command-worker.plist ~/Library/LaunchAgents/
+launchctl load -w ~/Library/LaunchAgents/com.swan.command-worker.plist
+```
+
+Admin commands:
+
+```
+# status (shows PID and last exit code)
+launchctl list | grep swan
+
+# stop (unload)
+launchctl unload ~/Library/LaunchAgents/com.swan.command-worker.plist
+
+# start (reload)
+launchctl load -w ~/Library/LaunchAgents/com.swan.command-worker.plist
+
+# restart (unload + load)
+launchctl unload ~/Library/LaunchAgents/com.swan.command-worker.plist && \
+  launchctl load -w ~/Library/LaunchAgents/com.swan.command-worker.plist
+
+# live log tail
+tail -f ~/Library/Logs/swan-command-worker.log
+
+# errors only
+tail -f ~/Library/Logs/swan-command-worker.err.log
 ```
 
 The laptop still sleeps and the worker still stops during sleep — that's
 scenario A's inherent limitation. Messages to Telegram sit queued in
 Supabase until the worker wakes up.
+
+**Current role allow-list:** the installed plist has
+`WORKER_ENABLED_ROLES=main` for a safe rollout. To flip all 7 roles
+onto the worker path, edit the plist (remove the env var or set to
+`main,research,comms,content,ops,legal,dev`), copy to
+`~/Library/LaunchAgents/`, and restart via the commands above.
 
 ## Moving to scenario B (laptop + small always-on VPS)
 
