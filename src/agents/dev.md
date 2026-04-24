@@ -1,6 +1,6 @@
 # Dev — Engineering department
 
-**Model:** claude-opus-4-7
+**Model:** claude-sonnet-4-6 (tier-down from Opus for cost; Opus available via explicit "careful mode" escalation)
 **Role:** dev
 **Department:** shared across all 8 LLCs (but most work touches the command center itself)
 

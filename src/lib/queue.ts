@@ -19,6 +19,52 @@ export function resolveConcurrencyCap(role: string): number {
   return CAPS[role] ?? 2;
 }
 
+// ─── Daily spend cap ────────────────────────────────────────────────────────
+
+export const DAILY_WARN_USD = Number(process.env.DAILY_SPEND_WARN_USD ?? 50);
+export const DAILY_HARD_USD = Number(process.env.DAILY_SPEND_HARD_USD ?? 150);
+
+export interface SpendSnapshot {
+  total_today_usd: number;
+  task_count: number;
+  warn: boolean;
+  blocked: boolean;
+}
+
+/**
+ * Sum `cost_usd` across today's completed and in-flight tasks. Tasks that
+ * fail before producing any tokens contribute 0, so the cap honestly
+ * reflects real burn.
+ */
+export async function spendToday(): Promise<SpendSnapshot> {
+  const since = startOfUtcDay();
+  const { data, error } = await supabase()
+    .from("tasks")
+    .select("cost_usd")
+    .gte("created_at", since);
+  if (error) throw error;
+  const total = (data ?? []).reduce((sum, row) => sum + (Number(row.cost_usd) || 0), 0);
+  return {
+    total_today_usd: total,
+    task_count: data?.length ?? 0,
+    warn: total >= DAILY_WARN_USD,
+    blocked: total >= DAILY_HARD_USD,
+  };
+}
+
+function startOfUtcDay(): string {
+  const now = new Date();
+  const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  return start.toISOString();
+}
+
+export class SpendCapExceeded extends Error {
+  constructor(public snapshot: SpendSnapshot) {
+    super(`daily spend cap exceeded: $${snapshot.total_today_usd.toFixed(2)} >= $${DAILY_HARD_USD}`);
+    this.name = "SpendCapExceeded";
+  }
+}
+
 export interface EnqueueArgs {
   agent_id: string;
   channel: Channel;
@@ -30,8 +76,13 @@ export interface EnqueueArgs {
   parent_task_id?: string | null;
 }
 
-/** Insert a `queued` task. Returns the inserted row. */
+/** Insert a `queued` task. Returns the inserted row. Throws SpendCapExceeded
+ *  if today's spend is already at or above DAILY_HARD_USD. */
 export async function enqueue(args: EnqueueArgs): Promise<Task> {
+  const snapshot = await spendToday();
+  if (snapshot.blocked) {
+    throw new SpendCapExceeded(snapshot);
+  }
   const { data, error } = await supabase()
     .from("tasks")
     .insert({
@@ -68,9 +119,9 @@ export interface MarkStatusPatch {
   started_at?: string;
   completed_at?: string;
   output?: unknown;
-  tokens_in?: number;
-  tokens_out?: number;
-  cost_usd?: number;
+  tokens_in?: number | null;
+  tokens_out?: number | null;
+  cost_usd?: number | null;
 }
 
 export async function markStatus(task_id: string, patch: MarkStatusPatch): Promise<void> {

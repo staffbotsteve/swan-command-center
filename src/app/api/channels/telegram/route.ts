@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { ingest } from "@/lib/ingest";
 import { sendTelegram } from "@/lib/channels/telegram-send";
 import { runTurn } from "@/lib/anthropic";
-import { markStatus } from "@/lib/queue";
+import { markStatus, SpendCapExceeded } from "@/lib/queue";
+import { costUsd } from "@/lib/pricing";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -38,12 +40,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, rejected: "not on allow list", chat_id: chatId });
   }
 
-  const { agent, task_id, decision } = await ingest({
-    channel: "telegram",
-    external_id: chatId,
-    sender: msg.from?.username ?? String(msg.from?.id ?? "unknown"),
-    text: msg.text,
-  });
+  let ingestResult;
+  try {
+    ingestResult = await ingest({
+      channel: "telegram",
+      external_id: chatId,
+      sender: msg.from?.username ?? String(msg.from?.id ?? "unknown"),
+      text: msg.text,
+    });
+  } catch (e) {
+    if (e instanceof SpendCapExceeded) {
+      try {
+        await sendTelegram(
+          chatId,
+          `⛔ *Daily spend cap hit* — $${e.snapshot.total_today_usd.toFixed(2)} today.\nBlocked until tomorrow UTC or raise DAILY_SPEND_HARD_USD.`
+        );
+      } catch {
+        // best-effort
+      }
+      return NextResponse.json({ ok: false, reason: "spend-cap" }, { status: 429 });
+    }
+    throw e;
+  }
+  const { agent, task_id, decision } = ingestResult;
 
   // Fire-and-forget: drive the agent session and reply asynchronously.
   // Vercel allows background work up to the function timeout; longer tasks
@@ -55,12 +74,16 @@ export async function POST(req: NextRequest) {
         started_at: new Date().toISOString(),
       });
       const turn = await runTurn(agent.id, ENV_ID, msg.text);
+      const cost = costUsd(agent.model, turn.usage);
       if (turn.error) {
         await sendTelegram(chatId, `⚠️ ${turn.error}`);
         await markStatus(task_id, {
           status: "failed",
           completed_at: new Date().toISOString(),
           session_id: turn.session_id,
+          tokens_in: turn.usage.input_tokens,
+          tokens_out: turn.usage.output_tokens,
+          cost_usd: cost,
           output: { error: turn.error, rule: decision.rule },
         });
         return;
@@ -71,6 +94,9 @@ export async function POST(req: NextRequest) {
         status: "done",
         completed_at: new Date().toISOString(),
         session_id: turn.session_id,
+        tokens_in: turn.usage.input_tokens,
+        tokens_out: turn.usage.output_tokens,
+        cost_usd: cost,
         output: { text: reply, rule: decision.rule },
       });
     } catch (e) {

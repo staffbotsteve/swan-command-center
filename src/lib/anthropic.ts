@@ -161,10 +161,27 @@ export async function sendUserMessage(sessionId: string, text: string): Promise<
   ]);
 }
 
+export interface TurnUsage {
+  input_tokens: number;
+  output_tokens: number;
+  cache_creation_input_tokens: number;
+  cache_read_input_tokens: number;
+}
+
 export interface RunTurnResult {
   text: string;
   events: SessionEvent[];
   error?: string;
+  usage: TurnUsage;
+}
+
+function zeroUsage(): TurnUsage {
+  return {
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+  };
 }
 
 /**
@@ -209,6 +226,7 @@ export async function runTurn(
         events,
         text: "",
         error: latestError.error?.message ?? "unknown error",
+        usage: zeroUsage(),
       };
     }
     if (sawRunningAfterUser && afterUser[afterUser.length - 1]?.type === "status_idle") break;
@@ -222,5 +240,22 @@ export async function runTurn(
       .map((b) => b.text)
       .join("") ?? "";
 
-  return { session_id: session.id, events, text: textOut };
+  const usage = events.reduce(
+    (acc, e) => ({
+      input_tokens: acc.input_tokens + (e.usage?.input_tokens ?? 0),
+      output_tokens: acc.output_tokens + (e.usage?.output_tokens ?? 0),
+      cache_creation_input_tokens:
+        acc.cache_creation_input_tokens + (e.usage?.cache_creation_input_tokens ?? 0),
+      cache_read_input_tokens:
+        acc.cache_read_input_tokens + (e.usage?.cache_read_input_tokens ?? 0),
+    }),
+    {
+      input_tokens: 0,
+      output_tokens: 0,
+      cache_creation_input_tokens: 0,
+      cache_read_input_tokens: 0,
+    }
+  );
+
+  return { session_id: session.id, events, text: textOut, usage };
 }

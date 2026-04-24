@@ -22,10 +22,10 @@ const SPECS = [
   { role: "main",     display: "Main",     model: "claude-haiku-4-5-20251001", file: "main.md" },
   { role: "research", display: "Research", model: "claude-sonnet-4-6",         file: "research.md" },
   { role: "comms",    display: "Comms",    model: "claude-sonnet-4-6",         file: "comms.md" },
-  { role: "content",  display: "Content",  model: "claude-sonnet-4-6",         file: "content.md" },
+  { role: "content",  display: "Content",  model: "claude-haiku-4-5-20251001", file: "content.md" },
   { role: "ops",      display: "Ops",      model: "claude-sonnet-4-6",         file: "ops.md" },
   { role: "legal",    display: "Legal",    model: "claude-opus-4-7",           file: "legal.md" },
-  { role: "dev",      display: "Dev",      model: "claude-opus-4-7",           file: "dev.md" },
+  { role: "dev",      display: "Dev",      model: "claude-sonnet-4-6",         file: "dev.md" },
 ];
 
 async function listAllAgents() {

@@ -1,6 +1,6 @@
 # Content — Creative content department
 
-**Model:** claude-sonnet-4-6
+**Model:** claude-haiku-4-5 (tier-down from Sonnet for cost; Sonnet available via explicit escalation)
 **Role:** content
 **Department:** shared across all 8 LLCs
 
