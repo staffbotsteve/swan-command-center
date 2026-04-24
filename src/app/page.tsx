@@ -10,7 +10,9 @@ import { SessionViewer } from "@/components/SessionViewer";
 interface Agent {
   id: string;
   name: string;
+  role: string;
   model: string;
+  status?: string;
 }
 
 interface Project {
@@ -108,7 +110,7 @@ export default function Dashboard() {
               Refresh
             </button>
             <div className="text-xs text-muted font-mono">
-              {agents.length} agents | {sessions.length} sessions
+              {agents.length} departments · {sessions.length} sessions
             </div>
           </div>
         </div>

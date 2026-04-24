@@ -195,7 +195,7 @@
 
 <!-- LAYER 3: AGENTS + TOOLBELTS -->
 <div class="layer-label">3 · Agents — shared departments · with toolbelts</div>
-<div class="row row-6">
+<div class="row" style="grid-template-columns: repeat(7, 1fr);">
   <div class="card agent-card">
     <span class="agent-model haiku">Haiku</span>
     <div class="label">Triage</div>
@@ -267,6 +267,20 @@
       <span class="tool">vault_read</span>
       <span class="tool">doc_parse</span>
       <span class="tool">web_search</span>
+    </div>
+  </div>
+  <div class="card agent-card">
+    <span class="agent-model opus">Opus</span>
+    <div class="label">Engineering</div>
+    <div class="title">Dev 🛠️</div>
+    <div class="desc">Async engineering: PR review, deploy/CI triage, one-shot fixes from Telegram, writing specs/plans, QA. Does <em>not</em> replace Claude Code in the IDE.</div>
+    <div class="toolbelt">
+      <span class="tool">github</span>
+      <span class="tool">vault_read</span>
+      <span class="tool">vault_write</span>
+      <span class="tool">web_search</span>
+      <span class="tool">shell</span>
+      <span class="tool">spawn_subagent</span>
     </div>
   </div>
 </div>
