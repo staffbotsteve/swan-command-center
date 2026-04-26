@@ -1,18 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingest } from "@/lib/ingest";
 import { sendTelegram } from "@/lib/channels/telegram-send";
-import { runTurn } from "@/lib/anthropic";
-import { markStatus, SpendCapExceeded } from "@/lib/queue";
-import { costUsd } from "@/lib/pricing";
-
-// When USE_WORKER_RUNTIME=1, this route stops invoking agents inline.
-// The worker process drains the queue via SDK.query() instead. See
-// docs/specs/2026-04-24-option-c-local-sdk.md.
-const USE_WORKER = process.env.USE_WORKER_RUNTIME === "1";
+import { SpendCapExceeded } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
-
-const ENV_ID = process.env.SWAN_ENV_ID ?? "env_01L4sqBNP3fo5hPLPSTtq7P1";
 
 function allowedChatIds(): Set<string> {
   return new Set(
@@ -25,6 +16,21 @@ function allowedChatIds(): Set<string> {
 
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
+/**
+ * Telegram webhook entrypoint.
+ *
+ * Pure enqueue: validate the message, write a `tasks` row, return 200.
+ * The worker (running locally on Steven's Mac via the LaunchAgent)
+ * drains the queue via the Claude Agent SDK and replies on Telegram
+ * out-of-band. No inline agent invocation here — the old Managed
+ * Agents fallback was removed (it relied on a per-token API path
+ * that drifted incompatible with the current beta and wouldn't be
+ * the right cost model anyway).
+ *
+ * If the worker is offline, tasks accumulate in `queued` state and
+ * drain when it comes back. Steven sees the queue in the dashboard's
+ * /hive view.
+ */
 export async function POST(req: NextRequest) {
   // Shared-secret header (set via Telegram setWebhook ?secret_token=...)
   if (SECRET) {
@@ -68,64 +74,11 @@ export async function POST(req: NextRequest) {
   }
   const { agent, task_id, decision } = ingestResult;
 
-  // Fire-and-forget: drive the agent session and reply asynchronously.
-  // Vercel allows background work up to the function timeout; longer tasks
-  // would need a queue worker (Phase 2 consideration).
-  // Worker runtime path: enqueue-only. Return immediately; worker
-  // picks up the task from Supabase and handles the turn via the SDK.
-  if (USE_WORKER) {
-    return NextResponse.json({
-      ok: true,
-      task_id,
-      agent: agent.role,
-      rule: decision.rule,
-      runtime: "worker",
-    });
-  }
-
-  // Managed Agents fallback path (Phase 1 runtime).
-  void (async () => {
-    try {
-      await markStatus(task_id, {
-        status: "in_flight",
-        started_at: new Date().toISOString(),
-      });
-      const turn = await runTurn(agent.id, ENV_ID, msg.text);
-      const cost = costUsd(agent.model, turn.usage);
-      if (turn.error) {
-        await sendTelegram(chatId, `⚠️ ${turn.error}`);
-        await markStatus(task_id, {
-          status: "failed",
-          completed_at: new Date().toISOString(),
-          session_id: turn.session_id,
-          tokens_in: turn.usage.input_tokens,
-          tokens_out: turn.usage.output_tokens,
-          cost_usd: cost,
-          output: { error: turn.error, rule: decision.rule },
-        });
-        return;
-      }
-      const reply = turn.text || "(empty response)";
-      await sendTelegram(chatId, reply);
-      await markStatus(task_id, {
-        status: "done",
-        completed_at: new Date().toISOString(),
-        session_id: turn.session_id,
-        tokens_in: turn.usage.input_tokens,
-        tokens_out: turn.usage.output_tokens,
-        cost_usd: cost,
-        output: { text: reply, rule: decision.rule },
-      });
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
-      try {
-        await sendTelegram(chatId, `⚠️ ${err}`);
-      } catch {
-        // best-effort — don't mask the original error
-      }
-      await markStatus(task_id, { status: "failed" });
-    }
-  })();
-
-  return NextResponse.json({ ok: true, task_id, agent: agent.role, rule: decision.rule });
+  return NextResponse.json({
+    ok: true,
+    task_id,
+    agent: agent.role,
+    rule: decision.rule,
+    runtime: "worker",
+  });
 }
