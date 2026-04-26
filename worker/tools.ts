@@ -28,6 +28,8 @@ import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
 import { listNotebooks, createNotebook, addSource, queryNotebook, generateReport } from "../src/tools/notebooklm";
+import { sendMessage as slackSend, listChannels as slackListChannels, searchMessages as slackSearch } from "../src/tools/slack";
+import imessageSend from "../src/tools/imessage";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -223,6 +225,24 @@ const nbReportSchema = {
   notebook_id: z.string(),
   style: z.enum(["briefing", "deep_dive", "slide_deck"]).optional(),
 };
+const slackSendSchema = {
+  channel: z.string(),
+  text: z.string(),
+  thread_ts: z.string().optional(),
+};
+const slackListChannelsSchema = {
+  exclude_archived: z.boolean().optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
+  types: z.string().optional(),
+};
+const slackSearchSchema = {
+  query: z.string(),
+  count: z.number().int().min(1).max(100).optional(),
+};
+const imessageSendSchema = {
+  recipient: z.string(),
+  text: z.string(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -268,6 +288,10 @@ export function buildSwanToolServer() {
       wrap(addSource, nbAddSourceSchema),
       wrap(queryNotebook, nbQuerySchema),
       wrap(generateReport, nbReportSchema),
+      wrap(slackSend, slackSendSchema),
+      wrap(slackListChannels, slackListChannelsSchema),
+      wrap(slackSearch, slackSearchSchema),
+      wrap(imessageSend, imessageSendSchema),
     ],
   });
 }
@@ -312,4 +336,8 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__notebooklm.add_source",
   "mcp__swan-tools__notebooklm.query",
   "mcp__swan-tools__notebooklm.generate_report",
+  "mcp__swan-tools__slack.send_message",
+  "mcp__swan-tools__slack.list_channels",
+  "mcp__swan-tools__slack.search_messages",
+  "mcp__swan-tools__imessage.send",
 ];

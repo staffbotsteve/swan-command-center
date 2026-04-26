@@ -40,6 +40,8 @@ import "./gmail";
 import "./calendar";
 import "./drive";
 import "./notebooklm";
+import "./slack";
+import "./imessage";
 // import "./skill-manager";
 
 export { listTools, getTool, defineTool, syncToolsToAnthropic } from "./registry";
