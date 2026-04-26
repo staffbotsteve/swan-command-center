@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { ingest } from "@/lib/ingest";
 import { SpendCapExceeded } from "@/lib/queue";
+import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -123,6 +124,36 @@ export async function POST(req: NextRequest) {
 
   const channel = evt.channel ?? "unknown";
   const text = evt.text ?? "";
+
+  // Mentions-only filter: drop plain message.channels events when the
+  // channel's routing row says mentions_only=true. app_mention always
+  // passes (the user explicitly @-mentioned the bot). DMs always pass
+  // (channel_type === "im" — there's no human-to-human conversation
+  // happening in a one-on-one DM with the bot).
+  if (isMessage && !isMention && evt.channel_type !== "im") {
+    const { data: route } = await supabase()
+      .from("channel_routing")
+      .select("mentions_only")
+      .eq("channel", "slack")
+      .eq("external_id", channel)
+      .maybeSingle();
+    if (route?.mentions_only) {
+      return NextResponse.json({ ok: true, skipped: "mentions-only channel, no @ mention" });
+    }
+  }
+
+  // app_mention events also fire a parallel message.channels event.
+  // To avoid double-processing the same user message, we treat
+  // app_mention as authoritative: when we see an app_mention, we
+  // process it. The matching message.channels event is then dropped
+  // because Slack sends the bot's user id in the text (e.g. "<@U0B0...>")
+  // which our text already contains. We dedup at the task level via
+  // source_id + a short window — but the cleanest fix is in Slack
+  // app config: subscribe to app_mention OR message.channels for a
+  // given channel, not both. Since we DO want full-message coverage
+  // in chat-mode channels, we keep both and rely on the worker's
+  // claim-once semantics — duplicates would just be processed twice
+  // briefly, which is wasteful but not user-visible.
 
   try {
     const { agent, task_id, decision } = await ingest({

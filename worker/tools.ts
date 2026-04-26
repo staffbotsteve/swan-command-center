@@ -28,6 +28,8 @@ import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
 import { listNotebooks, createNotebook, addSource, queryNotebook, generateReport } from "../src/tools/notebooklm";
+import { sendMessage as slackSend, listChannels as slackListChannels, searchMessages as slackSearch } from "../src/tools/slack";
+import imessageSend from "../src/tools/imessage";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -223,6 +225,24 @@ const nbReportSchema = {
   notebook_id: z.string(),
   style: z.enum(["briefing", "deep_dive", "slide_deck"]).optional(),
 };
+const slackSendSchema = {
+  channel: z.string(),
+  text: z.string(),
+  thread_ts: z.string().optional(),
+};
+const slackListChannelsSchema = {
+  exclude_archived: z.boolean().optional(),
+  limit: z.number().int().min(1).max(1000).optional(),
+  types: z.string().optional(),
+};
+const slackSearchSchema = {
+  query: z.string(),
+  count: z.number().int().min(1).max(100).optional(),
+};
+const imessageSendSchema = {
+  recipient: z.string(),
+  text: z.string(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -268,6 +288,10 @@ export function buildSwanToolServer() {
       wrap(addSource, nbAddSourceSchema),
       wrap(queryNotebook, nbQuerySchema),
       wrap(generateReport, nbReportSchema),
+      wrap(slackSend, slackSendSchema),
+      wrap(slackListChannels, slackListChannelsSchema),
+      wrap(slackSearch, slackSearchSchema),
+      wrap(imessageSend, imessageSendSchema),
     ],
   });
 }
@@ -278,38 +302,42 @@ export function buildSwanToolServer() {
  * Names follow the Agent SDK MCP convention: `mcp__<server>__<tool>`.
  */
 export const SWAN_TOOL_NAMES = [
-  "mcp__swan-tools__vault.read_file",
-  "mcp__swan-tools__vault.list_dir",
-  "mcp__swan-tools__vault.write_file",
+  "mcp__swan-tools__vault_read_file",
+  "mcp__swan-tools__vault_list_dir",
+  "mcp__swan-tools__vault_write_file",
   "mcp__swan-tools__classify",
-  "mcp__swan-tools__web.search",
+  "mcp__swan-tools__web_search",
   "mcp__swan-tools__dispatch",
-  "mcp__swan-tools__hive.query",
-  "mcp__swan-tools__youtube.search",
-  "mcp__swan-tools__doc.parse",
-  "mcp__swan-tools__github.list_prs",
-  "mcp__swan-tools__github.read_pr",
-  "mcp__swan-tools__github.comment",
-  "mcp__swan-tools__shell.exec",
-  "mcp__swan-tools__image.generate_imagen",
-  "mcp__swan-tools__image.generate_nano_banana",
-  "mcp__swan-tools__stripe.balance",
-  "mcp__swan-tools__stripe.list_charges",
-  "mcp__swan-tools__stripe.list_customers",
-  "mcp__swan-tools__stripe.list_invoices",
-  "mcp__swan-tools__stripe.list_payouts",
-  "mcp__swan-tools__gmail.list_threads",
-  "mcp__swan-tools__gmail.read_thread",
-  "mcp__swan-tools__gmail.create_draft",
-  "mcp__swan-tools__gmail.send",
-  "mcp__swan-tools__calendar.list_events",
-  "mcp__swan-tools__calendar.create_event",
-  "mcp__swan-tools__drive.list_files",
-  "mcp__swan-tools__drive.read_file",
-  "mcp__swan-tools__drive.write_file",
-  "mcp__swan-tools__notebooklm.list_notebooks",
-  "mcp__swan-tools__notebooklm.create_notebook",
-  "mcp__swan-tools__notebooklm.add_source",
-  "mcp__swan-tools__notebooklm.query",
-  "mcp__swan-tools__notebooklm.generate_report",
+  "mcp__swan-tools__hive_query",
+  "mcp__swan-tools__youtube_search",
+  "mcp__swan-tools__doc_parse",
+  "mcp__swan-tools__github_list_prs",
+  "mcp__swan-tools__github_read_pr",
+  "mcp__swan-tools__github_comment",
+  "mcp__swan-tools__shell_exec",
+  "mcp__swan-tools__image_generate_imagen",
+  "mcp__swan-tools__image_generate_nano_banana",
+  "mcp__swan-tools__stripe_balance",
+  "mcp__swan-tools__stripe_list_charges",
+  "mcp__swan-tools__stripe_list_customers",
+  "mcp__swan-tools__stripe_list_invoices",
+  "mcp__swan-tools__stripe_list_payouts",
+  "mcp__swan-tools__gmail_list_threads",
+  "mcp__swan-tools__gmail_read_thread",
+  "mcp__swan-tools__gmail_create_draft",
+  "mcp__swan-tools__gmail_send",
+  "mcp__swan-tools__calendar_list_events",
+  "mcp__swan-tools__calendar_create_event",
+  "mcp__swan-tools__drive_list_files",
+  "mcp__swan-tools__drive_read_file",
+  "mcp__swan-tools__drive_write_file",
+  "mcp__swan-tools__notebooklm_list_notebooks",
+  "mcp__swan-tools__notebooklm_create_notebook",
+  "mcp__swan-tools__notebooklm_add_source",
+  "mcp__swan-tools__notebooklm_query",
+  "mcp__swan-tools__notebooklm_generate_report",
+  "mcp__swan-tools__slack_send_message",
+  "mcp__swan-tools__slack_list_channels",
+  "mcp__swan-tools__slack_search_messages",
+  "mcp__swan-tools__imessage_send",
 ];
