@@ -27,6 +27,8 @@ import { loadAllAgentDefinitions, ROLE_SPECS, type AgentDefinition } from "../sr
 import { sendTelegram } from "../src/lib/channels/telegram-send";
 import type { Task } from "../src/types/db";
 import { buildSwanToolServer } from "./tools";
+import { maybeStoreMemory } from "../src/lib/memory-pipeline";
+import { loadVaultContextBlock } from "../src/lib/vault-context";
 
 /**
  * Per-role tool isolation. Each role gets only the MCP tools its
@@ -214,6 +216,11 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
   const prompt = input.text ?? "";
   if (!prompt) return { text: "", error: "empty prompt", tokens_in: 0, tokens_out: 0 };
 
+  // Auto-inject per-role vault context. Best-effort — silently skips
+  // missing files so a role works fine before its vault folder exists.
+  const vaultContext = await loadVaultContextBlock(role);
+  const systemPrompt = vaultContext ? def.prompt + vaultContext : def.prompt;
+
   let text = "";
   let tokens_in = 0;
   let tokens_out = 0;
@@ -239,7 +246,7 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
     prompt,
     options: {
       model: def.model,
-      systemPrompt: def.prompt,
+      systemPrompt,
       settingSources: [],
       mcpServers: { "swan-tools": buildSwanToolServer() },
       allowedTools: toolsForRole(role),
@@ -306,6 +313,24 @@ async function processOne(task: Task): Promise<void> {
       })
       .eq("id", task.id);
     await respondOverChannel(task, turn.text);
+
+    // Memory pipeline: classify the user's input + persist if signal.
+    // Best-effort — failure here doesn't roll back the task. Runs
+    // after the response is sent so latency stays low.
+    try {
+      const input = (task.input as { text?: string } | null) ?? {};
+      if (input.text) {
+        await maybeStoreMemory({
+          text: input.text,
+          context: turn.text || undefined,
+          source_task_id: task.id,
+          company: task.company,
+          project: task.project,
+        });
+      }
+    } catch (e) {
+      console.error("[worker] memory pipeline failed:", e);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     console.error(`[worker] task ${task.id} failed:`, msg);
