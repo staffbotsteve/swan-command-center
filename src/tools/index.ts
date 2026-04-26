@@ -36,10 +36,10 @@ import "./shell";
 import "./image-imagen";
 import "./image-nano-banana";
 import "./stripe-read";
+import "./gmail";
+import "./calendar";
+import "./drive";
 // import "./notebooklm";
-// import "./drive";
-// import "./gmail";
-// import "./calendar";
 // import "./skill-manager";
 
 export { listTools, getTool, defineTool, syncToolsToAnthropic } from "./registry";

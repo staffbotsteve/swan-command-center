@@ -24,6 +24,9 @@ import shellExec from "../src/tools/shell";
 import imageImagen from "../src/tools/image-imagen";
 import imageNanoBanana from "../src/tools/image-nano-banana";
 import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "../src/tools/stripe-read";
+import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
+import { listEvents, createEvent } from "../src/tools/calendar";
+import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -159,6 +162,52 @@ const stripeListPayoutsSchema = {
   limit: z.number().int().min(1).max(100).optional(),
   status: z.enum(["paid", "pending", "in_transit", "canceled", "failed"]).optional(),
 };
+const gmailListThreadsSchema = {
+  query: z.string().optional(),
+  max_results: z.number().int().min(1).max(50).optional(),
+  label_ids: z.array(z.string()).optional(),
+};
+const gmailReadThreadSchema = { thread_id: z.string() };
+const gmailCreateDraftSchema = {
+  to: z.string(),
+  subject: z.string(),
+  body: z.string(),
+  cc: z.string().optional(),
+  bcc: z.string().optional(),
+  thread_id: z.string().optional(),
+};
+const gmailSendSchema = gmailCreateDraftSchema;
+const calListEventsSchema = {
+  calendar_id: z.string().optional(),
+  time_min: z.string().optional(),
+  time_max: z.string().optional(),
+  max_results: z.number().int().min(1).max(100).optional(),
+  q: z.string().optional(),
+};
+const calCreateEventSchema = {
+  calendar_id: z.string().optional(),
+  summary: z.string(),
+  description: z.string().optional(),
+  start_iso: z.string(),
+  end_iso: z.string(),
+  attendees: z.array(z.string()).optional(),
+  location: z.string().optional(),
+};
+const driveListFilesSchema = {
+  query: z.string().optional(),
+  page_size: z.number().int().min(1).max(100).optional(),
+};
+const driveReadFileSchema = {
+  file_id: z.string(),
+  export_mime_type: z.string().optional(),
+  max_chars: z.number().int().min(1000).max(500_000).optional(),
+};
+const driveWriteFileSchema = {
+  name: z.string(),
+  content: z.string(),
+  parent_folder_id: z.string().optional(),
+  mime_type: z.string().optional(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -190,6 +239,15 @@ export function buildSwanToolServer() {
       wrap(listCustomers, stripeListCustomersSchema),
       wrap(listInvoices, stripeListInvoicesSchema),
       wrap(listPayouts, stripeListPayoutsSchema),
+      wrap(listThreads, gmailListThreadsSchema),
+      wrap(readThread, gmailReadThreadSchema),
+      wrap(createDraft, gmailCreateDraftSchema),
+      wrap(send, gmailSendSchema),
+      wrap(listEvents, calListEventsSchema),
+      wrap(createEvent, calCreateEventSchema),
+      wrap(listFiles, driveListFilesSchema),
+      wrap(readFile, driveReadFileSchema),
+      wrap(driveWriteFile, driveWriteFileSchema),
     ],
   });
 }
@@ -220,4 +278,13 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__stripe.list_customers",
   "mcp__swan-tools__stripe.list_invoices",
   "mcp__swan-tools__stripe.list_payouts",
+  "mcp__swan-tools__gmail.list_threads",
+  "mcp__swan-tools__gmail.read_thread",
+  "mcp__swan-tools__gmail.create_draft",
+  "mcp__swan-tools__gmail.send",
+  "mcp__swan-tools__calendar.list_events",
+  "mcp__swan-tools__calendar.create_event",
+  "mcp__swan-tools__drive.list_files",
+  "mcp__swan-tools__drive.read_file",
+  "mcp__swan-tools__drive.write_file",
 ];
