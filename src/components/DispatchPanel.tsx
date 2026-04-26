@@ -16,10 +16,11 @@ export function DispatchPanel({
   agents: Agent[];
   selectedAgent: Agent | null;
 }) {
-  const [agentId, setAgentId] = useState("");
+  const [agentId, setAgentId] = useState("auto");
   const [task, setTask] = useState("");
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState("");
+  const [autoAssign, setAutoAssign] = useState<{ role: string; reason: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
@@ -33,6 +34,7 @@ export function DispatchPanel({
     if (!effectiveAgentId || !task.trim()) return;
     setRunning(true);
     setOutput("");
+    setAutoAssign(null);
     setError(null);
     try {
       const res = await fetch("/api/dispatch", {
@@ -45,6 +47,9 @@ export function DispatchPanel({
         }),
       });
       const data = await res.json();
+      if (data.auto_assign) {
+        setAutoAssign({ role: data.auto_assign.role, reason: data.auto_assign.reason });
+      }
       if (!res.ok || data.error) {
         setError(data.error ?? `HTTP ${res.status}`);
         return;
@@ -71,7 +76,8 @@ export function DispatchPanel({
             onChange={(e) => setAgentId(e.target.value)}
             className="w-full bg-card border border-card-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
           >
-            <option value="">Select an agent...</option>
+            <option value="auto">🪄 Auto-assign (Gemini picks)</option>
+            <option value="" disabled>──────────</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name} ({a.model.includes("opus") ? "Opus" : a.model.includes("haiku") ? "Haiku" : "Sonnet"})
@@ -107,6 +113,13 @@ export function DispatchPanel({
 
       {/* Output */}
       <div ref={outputRef} className="flex-1 overflow-y-auto p-4 font-mono text-sm">
+        {autoAssign && (
+          <div className="mb-3 p-2.5 bg-accent/10 border border-accent/30 rounded text-xs text-accent">
+            <span className="font-semibold">Auto-assigned →</span>{" "}
+            <span className="font-mono">{autoAssign.role}</span>
+            <span className="text-muted ml-2">· {autoAssign.reason}</span>
+          </div>
+        )}
         {error && (
           <div className="mb-3 p-3 bg-danger/10 border border-danger/30 rounded text-danger text-sm">
             {error}
