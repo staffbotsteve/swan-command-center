@@ -25,6 +25,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import { loadAllAgentDefinitions, ROLE_SPECS, type AgentDefinition } from "../src/lib/agents-config";
 import { sendTelegram } from "../src/lib/channels/telegram-send";
+import { sendSlack } from "../src/lib/channels/slack-send";
 import type { Task } from "../src/types/db";
 import { buildSwanToolServer } from "./tools";
 import { maybeStoreMemory } from "../src/lib/memory-pipeline";
@@ -276,11 +277,14 @@ async function respondOverChannel(task: Task, text: string): Promise<void> {
   const channel = task.channel;
   const sourceId = task.source_id;
   if (!sourceId) return; // dashboard tasks get their reply via polling /api/hive
+  const body = text || "(empty response)";
   try {
     if (channel === "telegram") {
-      await sendTelegram(sourceId, text || "(empty response)");
+      await sendTelegram(sourceId, body);
+    } else if (channel === "slack") {
+      await sendSlack(sourceId, body);
     }
-    // Slack/email dispatch land in Phase 2 of the original plan.
+    // email dispatch lands later
   } catch (e) {
     console.error(`[worker] dispatch to ${channel} failed:`, e);
   }
