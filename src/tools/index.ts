@@ -30,9 +30,16 @@ import "./classify";
 import "./dispatch";
 import "./hive-query";
 import "./youtube-search";
+import "./doc-parse";
+import "./github";
+import "./shell";
+import "./image-imagen";
+import "./image-nano-banana";
 // import "./notebooklm";
-// import "./image-generate";
-// import "./spawn-subagent";
+// import "./drive";
+// import "./gmail";
+// import "./calendar";
+// import "./stripe-read";
 // import "./skill-manager";
 
 export { listTools, getTool, defineTool, syncToolsToAnthropic } from "./registry";

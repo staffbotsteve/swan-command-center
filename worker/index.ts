@@ -129,6 +129,21 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
   let tokens_in = 0;
   let tokens_out = 0;
 
+  // Subagents Main can delegate to via the SDK's built-in Agent tool.
+  // Other roles run without subagents for now — they can spawn ephemeral
+  // helpers in a later phase. Main has the entire roster as candidates.
+  const subagents =
+    role === "main"
+      ? {
+          research: { description: agentDefs.research.description, prompt: agentDefs.research.prompt, model: agentDefs.research.model },
+          comms:    { description: agentDefs.comms.description,    prompt: agentDefs.comms.prompt,    model: agentDefs.comms.model },
+          content:  { description: agentDefs.content.description,  prompt: agentDefs.content.prompt,  model: agentDefs.content.model },
+          ops:      { description: agentDefs.ops.description,      prompt: agentDefs.ops.prompt,      model: agentDefs.ops.model },
+          legal:    { description: agentDefs.legal.description,    prompt: agentDefs.legal.prompt,    model: agentDefs.legal.model },
+          dev:      { description: agentDefs.dev.description,      prompt: agentDefs.dev.prompt,      model: agentDefs.dev.model },
+        }
+      : undefined;
+
   const q = sdkQuery({
     prompt,
     options: {
@@ -137,6 +152,7 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       settingSources: [],
       mcpServers: { "swan-tools": buildSwanToolServer() },
       allowedTools: SWAN_TOOL_NAMES,
+      ...(subagents ? { agents: subagents } : {}),
     },
   });
 

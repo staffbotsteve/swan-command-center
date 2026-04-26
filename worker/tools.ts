@@ -18,6 +18,11 @@ import webSearch from "../src/tools/web-search";
 import dispatchTool from "../src/tools/dispatch";
 import hiveQuery from "../src/tools/hive-query";
 import youtubeSearch from "../src/tools/youtube-search";
+import docParse from "../src/tools/doc-parse";
+import { listPrs, readPr, commentTool } from "../src/tools/github";
+import shellExec from "../src/tools/shell";
+import imageImagen from "../src/tools/image-imagen";
+import imageNanoBanana from "../src/tools/image-nano-banana";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -99,6 +104,40 @@ const youtubeSearchSchema = {
   query: z.string(),
   max_results: z.number().int().min(1).max(10).optional(),
 };
+const docParseSchema = {
+  url: z.string(),
+  max_chars: z.number().int().min(1000).max(500_000).optional(),
+};
+const ghListPrsSchema = {
+  repo: z.string().optional(),
+  state: z.enum(["open", "closed", "all"]).optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+};
+const ghReadPrSchema = {
+  repo: z.string().optional(),
+  number: z.number().int().min(1),
+  include_diff: z.boolean().optional(),
+};
+const ghCommentSchema = {
+  repo: z.string().optional(),
+  number: z.number().int().min(1),
+  body: z.string(),
+};
+const shellSchema = {
+  command: z.string(),
+  args: z.array(z.string()).optional(),
+  cwd: z.string().optional(),
+  timeout_ms: z.number().int().min(100).max(60_000).optional(),
+};
+const imagenSchema = {
+  prompt: z.string(),
+  aspect_ratio: z.enum(["1:1", "16:9", "9:16", "3:4", "4:3"]).optional(),
+  number_of_images: z.number().int().min(1).max(4).optional(),
+};
+const nanoBananaSchema = {
+  prompt: z.string(),
+  reference_images: z.array(z.string()).optional(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -118,6 +157,13 @@ export function buildSwanToolServer() {
       wrap(dispatchTool, dispatchSchema),
       wrap(hiveQuery, hiveQuerySchema),
       wrap(youtubeSearch, youtubeSearchSchema),
+      wrap(docParse, docParseSchema),
+      wrap(listPrs, ghListPrsSchema),
+      wrap(readPr, ghReadPrSchema),
+      wrap(commentTool, ghCommentSchema),
+      wrap(shellExec, shellSchema),
+      wrap(imageImagen, imagenSchema),
+      wrap(imageNanoBanana, nanoBananaSchema),
     ],
   });
 }
@@ -136,4 +182,11 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__dispatch",
   "mcp__swan-tools__hive.query",
   "mcp__swan-tools__youtube.search",
+  "mcp__swan-tools__doc.parse",
+  "mcp__swan-tools__github.list_prs",
+  "mcp__swan-tools__github.read_pr",
+  "mcp__swan-tools__github.comment",
+  "mcp__swan-tools__shell.exec",
+  "mcp__swan-tools__image.generate_imagen",
+  "mcp__swan-tools__image.generate_nano_banana",
 ];
