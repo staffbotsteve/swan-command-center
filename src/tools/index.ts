@@ -35,11 +35,11 @@ import "./github";
 import "./shell";
 import "./image-imagen";
 import "./image-nano-banana";
+import "./stripe-read";
 // import "./notebooklm";
 // import "./drive";
 // import "./gmail";
 // import "./calendar";
-// import "./stripe-read";
 // import "./skill-manager";
 
 export { listTools, getTool, defineTool, syncToolsToAnthropic } from "./registry";

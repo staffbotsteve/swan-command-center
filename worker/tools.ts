@@ -23,6 +23,7 @@ import { listPrs, readPr, commentTool } from "../src/tools/github";
 import shellExec from "../src/tools/shell";
 import imageImagen from "../src/tools/image-imagen";
 import imageNanoBanana from "../src/tools/image-nano-banana";
+import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "../src/tools/stripe-read";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -138,6 +139,26 @@ const nanoBananaSchema = {
   prompt: z.string(),
   reference_images: z.array(z.string()).optional(),
 };
+const stripeBalanceSchema = {} as z.ZodRawShape;
+const stripeListChargesSchema = {
+  limit: z.number().int().min(1).max(100).optional(),
+  customer: z.string().optional(),
+  created_gte: z.number().int().optional(),
+  created_lte: z.number().int().optional(),
+};
+const stripeListCustomersSchema = {
+  limit: z.number().int().min(1).max(100).optional(),
+  email: z.string().optional(),
+};
+const stripeListInvoicesSchema = {
+  limit: z.number().int().min(1).max(100).optional(),
+  customer: z.string().optional(),
+  status: z.enum(["draft", "open", "paid", "uncollectible", "void"]).optional(),
+};
+const stripeListPayoutsSchema = {
+  limit: z.number().int().min(1).max(100).optional(),
+  status: z.enum(["paid", "pending", "in_transit", "canceled", "failed"]).optional(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -164,6 +185,11 @@ export function buildSwanToolServer() {
       wrap(shellExec, shellSchema),
       wrap(imageImagen, imagenSchema),
       wrap(imageNanoBanana, nanoBananaSchema),
+      wrap(balance, stripeBalanceSchema),
+      wrap(listCharges, stripeListChargesSchema),
+      wrap(listCustomers, stripeListCustomersSchema),
+      wrap(listInvoices, stripeListInvoicesSchema),
+      wrap(listPayouts, stripeListPayoutsSchema),
     ],
   });
 }
@@ -189,4 +215,9 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__shell.exec",
   "mcp__swan-tools__image.generate_imagen",
   "mcp__swan-tools__image.generate_nano_banana",
+  "mcp__swan-tools__stripe.balance",
+  "mcp__swan-tools__stripe.list_charges",
+  "mcp__swan-tools__stripe.list_customers",
+  "mcp__swan-tools__stripe.list_invoices",
+  "mcp__swan-tools__stripe.list_payouts",
 ];
