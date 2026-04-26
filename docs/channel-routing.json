@@ -1,0 +1,84 @@
+{
+  "_comment": "Auto-generated 2026-04-26 from list-slack-channels output. Edit freely; running `npm run channels:seed -- --apply` is idempotent.",
+  "routes": [
+    {
+      "channel": "slack",
+      "external_id": "C0B0BD9HRMX",
+      "agent_role": "comms",
+      "notes": "#assistant-calendar — calendar-focused Comms"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV651422X",
+      "agent_role": "comms",
+      "notes": "#assistant-travel — travel-context Comms"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV946DQER",
+      "agent_role": "comms",
+      "notes": "#assistant-phone — VIP screening / phone messages"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV6528BFD",
+      "agent_role": "comms",
+      "notes": "#assistant-communication — general inbox triage"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AVCG74350",
+      "agent_role": "main",
+      "notes": "#assistant-general — catch-all triage"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AVCG731TL",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "notes": "#swan-bill"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0ASFSGC2TS",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "notes": "#all-swan-bill"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV949ABHT",
+      "agent_role": "main",
+      "company": "E2S Transportation LLC",
+      "notes": "#e2s-transport"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV949L2G5",
+      "agent_role": "main",
+      "company": "E2S Properties AZ LLC",
+      "notes": "#e2s-az"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AVCG8RYP4",
+      "agent_role": "main",
+      "company": "e2s Properties LLC",
+      "notes": "#e2s-properties"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AUX2RJ1JT",
+      "agent_role": "main",
+      "company": "e2s Hospitality CA LLC",
+      "notes": "#hosp-ca"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0AV94BV45B",
+      "agent_role": "main",
+      "company": "e2s Hospitality NV LLC",
+      "notes": "#hosp-nv"
+    }
+  ]
+}
