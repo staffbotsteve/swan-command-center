@@ -26,7 +26,91 @@ import { query as sdkQuery } from "@anthropic-ai/claude-agent-sdk";
 import { loadAllAgentDefinitions, ROLE_SPECS, type AgentDefinition } from "../src/lib/agents-config";
 import { sendTelegram } from "../src/lib/channels/telegram-send";
 import type { Task } from "../src/types/db";
-import { buildSwanToolServer, SWAN_TOOL_NAMES } from "./tools";
+import { buildSwanToolServer } from "./tools";
+
+/**
+ * Per-role tool isolation. Each role gets only the MCP tools its
+ * system prompt claims — Legal can't send email, Comms can't read
+ * Stripe, Dev can't draft on the user's behalf. Defense in depth
+ * on top of agent-prompt-level guidance.
+ */
+const ROLE_TOOLS: Record<string, string[]> = {
+  main: [
+    "mcp__swan-tools__dispatch",
+    "mcp__swan-tools__hive.query",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.list_dir",
+  ],
+  research: [
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.list_dir",
+    "mcp__swan-tools__vault.write_file",
+    "mcp__swan-tools__web.search",
+    "mcp__swan-tools__youtube.search",
+    "mcp__swan-tools__drive.list_files",
+    "mcp__swan-tools__drive.read_file",
+    "mcp__swan-tools__drive.write_file",
+    "mcp__swan-tools__doc.parse",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+  comms: [
+    "mcp__swan-tools__gmail.list_threads",
+    "mcp__swan-tools__gmail.read_thread",
+    "mcp__swan-tools__gmail.create_draft",
+    "mcp__swan-tools__gmail.send",
+    "mcp__swan-tools__calendar.list_events",
+    "mcp__swan-tools__calendar.create_event",
+    "mcp__swan-tools__dispatch",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+  content: [
+    "mcp__swan-tools__image.generate_imagen",
+    "mcp__swan-tools__image.generate_nano_banana",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.write_file",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+  ops: [
+    "mcp__swan-tools__stripe.balance",
+    "mcp__swan-tools__stripe.list_charges",
+    "mcp__swan-tools__stripe.list_customers",
+    "mcp__swan-tools__stripe.list_invoices",
+    "mcp__swan-tools__stripe.list_payouts",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.write_file",
+    "mcp__swan-tools__dispatch",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+  legal: [
+    "mcp__swan-tools__doc.parse",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.list_dir",
+    "mcp__swan-tools__web.search",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+  dev: [
+    "mcp__swan-tools__github.list_prs",
+    "mcp__swan-tools__github.read_pr",
+    "mcp__swan-tools__github.comment",
+    "mcp__swan-tools__shell.exec",
+    "mcp__swan-tools__vault.read_file",
+    "mcp__swan-tools__vault.write_file",
+    "mcp__swan-tools__web.search",
+    "mcp__swan-tools__classify",
+    "mcp__swan-tools__hive.query",
+  ],
+};
+
+function toolsForRole(role: string): string[] {
+  return ROLE_TOOLS[role] ?? ROLE_TOOLS.main;
+}
 
 const SUPABASE_URL = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
 const SUPABASE_KEY = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
@@ -130,17 +214,19 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
   let tokens_out = 0;
 
   // Subagents Main can delegate to via the SDK's built-in Agent tool.
-  // Other roles run without subagents for now — they can spawn ephemeral
-  // helpers in a later phase. Main has the entire roster as candidates.
+  // Each subagent gets its OWN role-specific tool allowlist so a Main
+  // -> Legal handoff doesn't smuggle write-access tools into Legal's
+  // session. Other roles run without subagents for now — they can
+  // spawn ephemeral helpers in a later phase.
   const subagents =
     role === "main"
       ? {
-          research: { description: agentDefs.research.description, prompt: agentDefs.research.prompt, model: agentDefs.research.model },
-          comms:    { description: agentDefs.comms.description,    prompt: agentDefs.comms.prompt,    model: agentDefs.comms.model },
-          content:  { description: agentDefs.content.description,  prompt: agentDefs.content.prompt,  model: agentDefs.content.model },
-          ops:      { description: agentDefs.ops.description,      prompt: agentDefs.ops.prompt,      model: agentDefs.ops.model },
-          legal:    { description: agentDefs.legal.description,    prompt: agentDefs.legal.prompt,    model: agentDefs.legal.model },
-          dev:      { description: agentDefs.dev.description,      prompt: agentDefs.dev.prompt,      model: agentDefs.dev.model },
+          research: { description: agentDefs.research.description, prompt: agentDefs.research.prompt, model: agentDefs.research.model, tools: toolsForRole("research") },
+          comms:    { description: agentDefs.comms.description,    prompt: agentDefs.comms.prompt,    model: agentDefs.comms.model,    tools: toolsForRole("comms") },
+          content:  { description: agentDefs.content.description,  prompt: agentDefs.content.prompt,  model: agentDefs.content.model,  tools: toolsForRole("content") },
+          ops:      { description: agentDefs.ops.description,      prompt: agentDefs.ops.prompt,      model: agentDefs.ops.model,      tools: toolsForRole("ops") },
+          legal:    { description: agentDefs.legal.description,    prompt: agentDefs.legal.prompt,    model: agentDefs.legal.model,    tools: toolsForRole("legal") },
+          dev:      { description: agentDefs.dev.description,      prompt: agentDefs.dev.prompt,      model: agentDefs.dev.model,      tools: toolsForRole("dev") },
         }
       : undefined;
 
@@ -151,7 +237,7 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       systemPrompt: def.prompt,
       settingSources: [],
       mcpServers: { "swan-tools": buildSwanToolServer() },
-      allowedTools: SWAN_TOOL_NAMES,
+      allowedTools: toolsForRole(role),
       ...(subagents ? { agents: subagents } : {}),
     },
   });
