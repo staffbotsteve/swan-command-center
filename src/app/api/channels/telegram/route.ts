@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingest } from "@/lib/ingest";
 import { sendTelegram } from "@/lib/channels/telegram-send";
-import { createSession, sendMessage, streamSession } from "@/lib/anthropic";
-import { markStatus } from "@/lib/queue";
+import { SpendCapExceeded } from "@/lib/queue";
 
 export const dynamic = "force-dynamic";
-
-const ENV_ID = process.env.SWAN_ENV_ID ?? "env_01L4sqBNP3fo5hPLPSTtq7P1";
 
 function allowedChatIds(): Set<string> {
   return new Set(
@@ -19,6 +16,21 @@ function allowedChatIds(): Set<string> {
 
 const SECRET = process.env.TELEGRAM_WEBHOOK_SECRET;
 
+/**
+ * Telegram webhook entrypoint.
+ *
+ * Pure enqueue: validate the message, write a `tasks` row, return 200.
+ * The worker (running locally on Steven's Mac via the LaunchAgent)
+ * drains the queue via the Claude Agent SDK and replies on Telegram
+ * out-of-band. No inline agent invocation here — the old Managed
+ * Agents fallback was removed (it relied on a per-token API path
+ * that drifted incompatible with the current beta and wouldn't be
+ * the right cost model anyway).
+ *
+ * If the worker is offline, tasks accumulate in `queued` state and
+ * drain when it comes back. Steven sees the queue in the dashboard's
+ * /hive view.
+ */
 export async function POST(req: NextRequest) {
   // Shared-secret header (set via Telegram setWebhook ?secret_token=...)
   if (SECRET) {
@@ -38,72 +50,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, rejected: "not on allow list", chat_id: chatId });
   }
 
-  const { agent, task_id, decision } = await ingest({
-    channel: "telegram",
-    external_id: chatId,
-    sender: msg.from?.username ?? String(msg.from?.id ?? "unknown"),
-    text: msg.text,
-  });
-
-  // Fire-and-forget: drive the agent session and reply asynchronously.
-  // Vercel allows background work up to the function timeout; longer tasks
-  // would need a queue worker (Phase 2 consideration).
-  void (async () => {
-    try {
-      await markStatus(task_id, {
-        status: "in_flight",
-        started_at: new Date().toISOString(),
-      });
-      const session = await createSession(agent.id, ENV_ID);
-      await sendMessage(session.id, msg.text);
-      const stream = await streamSession(session.id);
-      const text = await collectText(stream);
-      const reply = text || "(empty response)";
-      await sendTelegram(chatId, reply);
-      await markStatus(task_id, {
-        status: "done",
-        completed_at: new Date().toISOString(),
-        session_id: session.id,
-        output: { text: reply, rule: decision.rule },
-      });
-    } catch (e) {
-      const err = e instanceof Error ? e.message : String(e);
+  let ingestResult;
+  try {
+    ingestResult = await ingest({
+      channel: "telegram",
+      external_id: chatId,
+      sender: msg.from?.username ?? String(msg.from?.id ?? "unknown"),
+      text: msg.text,
+    });
+  } catch (e) {
+    if (e instanceof SpendCapExceeded) {
       try {
-        await sendTelegram(chatId, `⚠️ ${err}`);
+        await sendTelegram(
+          chatId,
+          `⛔ *Daily spend cap hit* — $${e.snapshot.total_today_usd.toFixed(2)} today.\nBlocked until tomorrow UTC or raise DAILY_SPEND_HARD_USD.`
+        );
       } catch {
-        // best-effort — don't mask the original error
+        // best-effort
       }
-      await markStatus(task_id, { status: "failed" });
+      return NextResponse.json({ ok: false, reason: "spend-cap" }, { status: 429 });
     }
-  })();
-
-  return NextResponse.json({ ok: true, task_id, agent: agent.role, rule: decision.rule });
-}
-
-async function collectText(res: Response): Promise<string> {
-  if (!res.body) return "";
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let out = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const chunk = decoder.decode(value, { stream: true });
-    for (const line of chunk.split("\n")) {
-      if (!line.startsWith("data: ")) continue;
-      const json = line.slice(6).trim();
-      if (!json || json === "[DONE]") continue;
-      try {
-        const evt = JSON.parse(json);
-        if (evt.type === "agent.message" && Array.isArray(evt.content)) {
-          for (const block of evt.content) {
-            if (block.type === "text") out += block.text;
-          }
-        }
-      } catch {
-        // skip malformed chunks
-      }
-    }
+    throw e;
   }
-  return out;
+  const { agent, task_id, decision } = ingestResult;
+
+  return NextResponse.json({
+    ok: true,
+    task_id,
+    agent: agent.role,
+    rule: decision.rule,
+    runtime: "worker",
+  });
 }

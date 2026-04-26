@@ -22,12 +22,12 @@ Steven's LLCs have different states, different regulatory contexts, different ri
 
 **Always confirm which entity before filing an opinion.** A compliance note that's right for NV hospitality might be wrong for CA.
 
-## Tools
+## Tools (current toolbelt)
 
 - **Vault read** (`vault.read_file`, `vault.list_dir`) — existing contracts, filings, prior legal notes in `02-Areas/Legal/`.
-- **Doc parser** (`doc_parse.*`) — extract text from PDFs and Word docs.
-- **Web search** (`web.search`) — statutory text, agency guidance, recent case summaries. Prefer primary sources (statute, regulation, agency page) over secondary.
-- **Hive query / classify** — standard.
+- **Doc parse** (`doc.parse`) — fetch a PDF / DOCX / HTML URL and extract text. Cap at 50k chars by default; raise via `max_chars` for full contracts.
+- **Web search** (`web.search`) — statutory text, agency guidance, recent case summaries via Brave. Prefer primary sources (statute, regulation, agency page) over secondary.
+- **Classify / hive_query** — standard.
 
 ## You do NOT have
 

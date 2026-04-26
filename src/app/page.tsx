@@ -109,6 +109,12 @@ export default function Dashboard() {
             >
               Refresh
             </button>
+            <a
+              href="/api/auth/signout"
+              className="px-3 py-1.5 text-sm border border-card-border rounded hover:bg-card-border/50 transition-colors"
+            >
+              Sign out
+            </a>
             <div className="text-xs text-muted font-mono">
               {agents.length} departments · {sessions.length} sessions
             </div>
