@@ -36,20 +36,23 @@
       "external_id": "C0AVCG731TL",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "notes": "#swan-bill"
+      "mentions_only": true,
+      "notes": "#swan-bill — humans converse here; bot only on @mention"
     },
     {
       "channel": "slack",
       "external_id": "C0ASFSGC2TS",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "notes": "#all-swan-bill"
+      "mentions_only": true,
+      "notes": "#all-swan-bill — humans converse here; bot only on @mention"
     },
     {
       "channel": "slack",
       "external_id": "C0AV949ABHT",
       "agent_role": "main",
       "company": "E2S Transportation LLC",
+      "mentions_only": true,
       "notes": "#e2s-transport"
     },
     {
@@ -57,6 +60,7 @@
       "external_id": "C0AV949L2G5",
       "agent_role": "main",
       "company": "E2S Properties AZ LLC",
+      "mentions_only": true,
       "notes": "#e2s-az"
     },
     {
@@ -64,6 +68,7 @@
       "external_id": "C0AVCG8RYP4",
       "agent_role": "main",
       "company": "e2s Properties LLC",
+      "mentions_only": true,
       "notes": "#e2s-properties"
     },
     {
@@ -71,6 +76,7 @@
       "external_id": "C0AUX2RJ1JT",
       "agent_role": "main",
       "company": "e2s Hospitality CA LLC",
+      "mentions_only": true,
       "notes": "#hosp-ca"
     },
     {
@@ -78,6 +84,7 @@
       "external_id": "C0AV94BV45B",
       "agent_role": "main",
       "company": "e2s Hospitality NV LLC",
+      "mentions_only": true,
       "notes": "#hosp-nv"
     }
   ]

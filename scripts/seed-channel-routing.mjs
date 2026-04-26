@@ -64,6 +64,7 @@ for (const r of routes) {
       company: r.company ?? null,
       project: r.project ?? null,
       notes: r.notes ?? null,
+      mentions_only: r.mentions_only ?? false,
     },
     { onConflict: "channel,external_id" }
   );
