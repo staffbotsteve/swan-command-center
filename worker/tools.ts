@@ -27,6 +27,7 @@ import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "
 import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
+import { listNotebooks, createNotebook, addSource, queryNotebook, generateReport } from "../src/tools/notebooklm";
 
 import type { ToolDefinition, ToolHandlerContext } from "../src/tools/registry";
 
@@ -208,6 +209,20 @@ const driveWriteFileSchema = {
   parent_folder_id: z.string().optional(),
   mime_type: z.string().optional(),
 };
+const nbListSchema = {} as z.ZodRawShape;
+const nbCreateSchema = { title: z.string() };
+const nbAddSourceSchema = {
+  notebook_id: z.string(),
+  url: z.string(),
+};
+const nbQuerySchema = {
+  notebook_id: z.string(),
+  question: z.string(),
+};
+const nbReportSchema = {
+  notebook_id: z.string(),
+  style: z.enum(["briefing", "deep_dive", "slide_deck"]).optional(),
+};
 
 /**
  * All tools the worker exposes to the SDK. Agents elect to call
@@ -248,6 +263,11 @@ export function buildSwanToolServer() {
       wrap(listFiles, driveListFilesSchema),
       wrap(readFile, driveReadFileSchema),
       wrap(driveWriteFile, driveWriteFileSchema),
+      wrap(listNotebooks, nbListSchema),
+      wrap(createNotebook, nbCreateSchema),
+      wrap(addSource, nbAddSourceSchema),
+      wrap(queryNotebook, nbQuerySchema),
+      wrap(generateReport, nbReportSchema),
     ],
   });
 }
@@ -287,4 +307,9 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__drive.list_files",
   "mcp__swan-tools__drive.read_file",
   "mcp__swan-tools__drive.write_file",
+  "mcp__swan-tools__notebooklm.list_notebooks",
+  "mcp__swan-tools__notebooklm.create_notebook",
+  "mcp__swan-tools__notebooklm.add_source",
+  "mcp__swan-tools__notebooklm.query",
+  "mcp__swan-tools__notebooklm.generate_report",
 ];

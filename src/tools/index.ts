@@ -39,7 +39,7 @@ import "./stripe-read";
 import "./gmail";
 import "./calendar";
 import "./drive";
-// import "./notebooklm";
+import "./notebooklm";
 // import "./skill-manager";
 
 export { listTools, getTool, defineTool, syncToolsToAnthropic } from "./registry";
