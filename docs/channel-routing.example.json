@@ -1,0 +1,87 @@
+{
+  "_comment": "Channel routing map. Each entry pins a Slack channel (or Telegram/email source) to a department role and optionally tags every task from that channel with a company + project. Run `npm run channels:list-slack` to see your workspace's channel ids; then edit this file and run `npm run channels:seed`. Format: an array of objects with these fields:",
+  "_schema": {
+    "channel": "slack | telegram | email",
+    "external_id": "Slack channel id (C0123...) or Telegram chat id or email sender",
+    "agent_role": "main | research | comms | content | ops | legal | dev",
+    "company": "(optional) company tag, e.g. 'SwanBill LLC'",
+    "project": "(optional) project tag, e.g. 'q2-fleet-audit'",
+    "notes": "(optional) human note for your future reference"
+  },
+  "routes": [
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_assistant-calendar",
+      "agent_role": "comms",
+      "notes": "calendar-focused Comms"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_assistant-travel",
+      "agent_role": "comms",
+      "notes": "travel-context Comms"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_assistant-phone",
+      "agent_role": "comms",
+      "notes": "VIP screening / phone messages"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_assistant-communication",
+      "agent_role": "comms",
+      "notes": "general inbox triage"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_assistant-general",
+      "agent_role": "main",
+      "notes": "catch-all triage"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_swanbill",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "notes": "all things SwanBill — Main triages, tagged with company"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_providence",
+      "agent_role": "main",
+      "company": "Providence Fire & Rescue",
+      "notes": "all things Providence"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_e2s-transport",
+      "agent_role": "main",
+      "company": "E2S Transportation LLC"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_e2s-az",
+      "agent_role": "main",
+      "company": "E2S Properties AZ LLC"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_e2s-properties",
+      "agent_role": "main",
+      "company": "e2s Properties LLC"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_hosp-ca",
+      "agent_role": "main",
+      "company": "e2s Hospitality CA LLC"
+    },
+    {
+      "channel": "slack",
+      "external_id": "REPLACE_ME_C_ID_FOR_hosp-nv",
+      "agent_role": "main",
+      "company": "e2s Hospitality NV LLC"
+    }
+  ]
+}
