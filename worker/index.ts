@@ -55,12 +55,18 @@ const ROLE_TOOLS: Record<string, string[]> = {
     "mcp__swan-tools__drive_read_file",
     "mcp__swan-tools__drive_write_file",
     "mcp__swan-tools__doc_parse",
-    "mcp__swan-tools__notebooklm_list_notebooks",
-    "mcp__swan-tools__notebooklm_create_notebook",
-    "mcp__swan-tools__notebooklm_add_source",
-    "mcp__swan-tools__notebooklm_query",
-    "mcp__swan-tools__notebooklm_research",
-    "mcp__swan-tools__notebooklm_generate_report",
+    // NotebookLM via external notebooklm-mcp (browser-automation,
+    // persistent Chrome profile). On first call the user signs in
+    // through a browser popup; subsequent calls reuse that session.
+    "mcp__notebooklm__ask_question",
+    "mcp__notebooklm__list_notebooks",
+    "mcp__notebooklm__select_notebook",
+    "mcp__notebooklm__get_notebook",
+    "mcp__notebooklm__setup_auth",
+    "mcp__notebooklm__add_notebook",
+    "mcp__notebooklm__update_notebook",
+    "mcp__notebooklm__search_notebooks",
+    "mcp__notebooklm__get_health",
     "mcp__swan-tools__classify",
     "mcp__swan-tools__hive_query",
   ],
@@ -254,7 +260,18 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       model: def.model,
       systemPrompt,
       settingSources: [],
-      mcpServers: { "swan-tools": buildSwanToolServer() },
+      mcpServers: {
+        "swan-tools": buildSwanToolServer(),
+        // External stdio MCP server for NotebookLM. Persists a Chrome
+        // profile under ~/Library/Application Support/notebooklm-mcp/
+        // so authentication survives across worker restarts. First call
+        // pops a browser window for Google login; subsequent calls
+        // reuse the persisted session.
+        notebooklm: {
+          command: "npx",
+          args: ["-y", "notebooklm-mcp@latest"],
+        },
+      },
       allowedTools: toolsForRole(role),
       ...(subagents ? { agents: subagents } : {}),
     },
