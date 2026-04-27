@@ -351,9 +351,20 @@ class AddSourceBody(BaseModel):
     url: str
 
 
+class ChatMessage(BaseModel):
+    role: str  # "user" or "assistant"
+    content: str
+
+
 class QueryBody(BaseModel):
     notebook_id: str
+    source_ids: list[str]  # sources to ground the answer in
     question: str
+    history: list[ChatMessage] = []
+    # uuid identifying the conversation thread inside the notebook.
+    # If omitted the companion generates one. Pass the same value to
+    # continue a thread across turns.
+    chat_session_id: Optional[str] = None
 
 
 class GenerateReportBody(BaseModel):
@@ -451,25 +462,176 @@ def add_source(body: AddSourceBody, authorization: Optional[str] = Header(None))
 # ─── NOT YET CALIBRATED — need second HAR capture ──────────────────────────
 
 
+def _new_chat_session_id() -> str:
+    import uuid
+    return str(uuid.uuid4())
+
+
+# Roles in the wire format: 1 = user, 2 = assistant.
+_ROLE_TO_INT = {"user": 1, "assistant": 2}
+
+
+def _parse_streamed_envelopes(text: str) -> list:
+    """Parse a length-prefixed JSON-envelope stream into a flat list."""
+    if text.startswith(")]}'"):
+        text = text[4:].lstrip()
+    envelopes: list = []
+    i = 0
+    while i < len(text):
+        j = text.find("[", i)
+        if j < 0:
+            break
+        depth = 0
+        k = j
+        in_str = False
+        esc = False
+        while k < len(text):
+            ch = text[k]
+            if in_str:
+                if esc:
+                    esc = False
+                elif ch == "\\":
+                    esc = True
+                elif ch == '"':
+                    in_str = False
+            else:
+                if ch == '"':
+                    in_str = True
+                elif ch == "[":
+                    depth += 1
+                elif ch == "]":
+                    depth -= 1
+                    if depth == 0:
+                        chunk = text[j : k + 1]
+                        try:
+                            envelopes.extend(json.loads(chunk))
+                        except Exception:
+                            pass
+                        i = k + 1
+                        break
+            k += 1
+        else:
+            break
+    return envelopes
+
+
+def _extract_answer_text(envelopes: list) -> Optional[str]:
+    """Best-effort extractor for the assistant's final answer text from
+    the streamed response. The exact envelope shape was not captured
+    (Chrome's HAR strips streamed bodies), so this scans for the
+    longest string payload that looks like an answer."""
+    candidates: list[str] = []
+    def walk(x):
+        if isinstance(x, str):
+            if len(x) >= 60 and ("." in x or "\n" in x):
+                candidates.append(x)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+        elif isinstance(x, dict):
+            for v in x.values():
+                walk(v)
+    walk(envelopes)
+    if not candidates:
+        return None
+    return max(candidates, key=len)
+
+
+CHAT_SERVICE_PATH = (
+    "/_/LabsTailwindUi/data/"
+    "google.internal.labs.tailwind.orchestration.v1."
+    "LabsTailwindOrchestrationService/GenerateFreeFormStreamed"
+)
+
+
 @app.post("/query")
 def query(body: QueryBody, authorization: Optional[str] = Header(None)):
-    """Ask a question about a notebook (chat).
+    """Ask a question grounded in a notebook's sources (chat).
 
-    PENDING CALIBRATION — capture/2 ended without a chat call. To wire
-    this, do a HAR capture containing ONLY a chat question:
+    Calibrated against HAR capture 2026-04-26.
 
-      1. Open notebook, type a question into the chat box, press Enter.
-      2. Wait for the answer to fully render.
-      3. Right-click → Copy all as HAR → paste to disk.
+    Endpoint: POST /_/LabsTailwindUi/data/.../GenerateFreeFormStreamed
+    Body:     f.req=[null, "<inner_json>"] & at=<token>
+    Inner:    [
+                [[[<source_ids>]]],
+                "<question>",
+                [[<msg>, null, <role_int>], ...],   # history, chronological
+                [2, null, [1], [1]],                # mode/flags
+                "<chat_session_id>",
+                null, null,
+                "<notebook_id>",
+                <turn_index>,
+              ]
 
-    The rpcid will appear once and the question text will be visible
-    in the request body when grepped.
+    Response is a streamed sequence of length-prefixed JSON envelopes.
+    Chrome strips the body in HAR exports so the exact envelope shape
+    isn't captured; we parse generically and best-effort-extract the
+    longest text payload as the answer.
     """
     require_secret(authorization)
-    raise HTTPException(
-        status_code=501,
-        detail="query endpoint not yet calibrated — capture chat-only HAR",
-    )
+    s = google_session()
+    toks = get_bootstrap(s)
+
+    chat_session_id = body.chat_session_id or _new_chat_session_id()
+    history_payload = [
+        [m.content, None, _ROLE_TO_INT.get(m.role.lower(), 1)]
+        for m in body.history
+    ]
+    turn_index = (len(body.history) // 2) + 1
+
+    inner = [
+        [[list(body.source_ids)]],
+        body.question,
+        history_payload,
+        [2, None, [1], [1]],
+        chat_session_id,
+        None,
+        None,
+        body.notebook_id,
+        turn_index,
+    ]
+    f_req = json.dumps([None, json.dumps(inner, separators=(",", ":"))],
+                       separators=(",", ":"))
+
+    params = {
+        "bl": toks["bl"],
+        "f.sid": toks["fsid"],
+        "hl": "en",
+        "_reqid": str(_next_reqid()),
+        "rt": "c",
+    }
+    body_str = urllib.parse.urlencode({"f.req": f_req, "at": toks["at"]})
+
+    url = NOTEBOOKLM_BASE + CHAT_SERVICE_PATH + "?" + urllib.parse.urlencode(params)
+    headers = {
+        # The chat endpoint requires this JSPB extension header.
+        "X-Goog-Ext-353267353-Jspb": "[null,null,null,282611]",
+    }
+    r = s.post(url, data=body_str, headers=headers, timeout=120)
+
+    if r.status_code in (401, 403):
+        log.warning("chat -> %d; re-scraping tokens", r.status_code)
+        toks = get_bootstrap(s, force=True)
+        params["bl"] = toks["bl"]
+        params["f.sid"] = toks["fsid"]
+        body_str = urllib.parse.urlencode({"f.req": f_req, "at": toks["at"]})
+        url = NOTEBOOKLM_BASE + CHAT_SERVICE_PATH + "?" + urllib.parse.urlencode(params)
+        r = s.post(url, data=body_str, headers=headers, timeout=120)
+
+    if r.status_code != 200:
+        raise HTTPException(
+            status_code=502,
+            detail=f"chat HTTP {r.status_code}: {r.text[:200]}",
+        )
+
+    envelopes = _parse_streamed_envelopes(r.text)
+    answer = _extract_answer_text(envelopes)
+    return {
+        "chat_session_id": chat_session_id,
+        "turn_index": turn_index,
+        "answer": answer,
+        "raw_envelopes": envelopes,
+    }
 
 
 @app.post("/reports")
