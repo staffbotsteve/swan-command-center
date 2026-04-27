@@ -528,50 +528,44 @@ def _parse_streamed_envelopes(text: str) -> list:
 def _extract_answer_text(envelopes: list) -> Optional[str]:
     """Extract the assistant's clean answer text from the streamed response.
 
-    The streamed response wraps the answer in nested JSON: each envelope
-    of the form ["wrb.fr", <service>, <payload_string>, …] carries a
-    JSON-encoded payload string at position [2]. Inside that payload,
-    the clean answer text sits at position [0]. We unfold those nested
-    JSON strings recursively and pick the longest plausible answer.
+    The streamed response is a sequence of envelopes:
+
+      ["wrb.fr", <service_id>, <payload_json_string>]   # answer chunks
+      ["di", …]                                          # data info
+      ["af.httprm", …]                                   # http metadata
+      ["e", …]                                           # end-of-stream
+
+    Each `wrb.fr` payload, when JSON-decoded, has the answer text at
+    position [0][0]. The stream emits multiple wrb.fr envelopes:
+
+      - early ones contain Gemini's "thinking" trace ("**Initiating
+        the Analysis**\n…")
+      - later ones contain the streaming partial answer
+      - the LAST wrb.fr envelope contains the complete final answer
+
+    So we walk the envelopes in reverse, find the last wrb.fr,
+    decode its payload, and return position [0][0].
     """
-    candidates: list[str] = []
-
-    def is_answer_text(s: str) -> bool:
-        if len(s) < 30:
-            return False
-        # Reject obvious metadata strings (UUIDs, ids, hashes).
-        if re.fullmatch(r"[0-9a-fA-F-]{30,}", s):
-            return False
-        # Accept anything that looks like prose: contains a space and
-        # either punctuation or a newline.
-        return " " in s and any(c in s for c in ".!?\n")
-
-    def walk(x):
-        if isinstance(x, str):
-            # If the string starts with `[` or `{` it might be a
-            # JSON-encoded sub-structure; recurse into it.
-            stripped = x.strip()
-            if stripped.startswith(("[", "{")):
-                try:
-                    walk(json.loads(stripped))
-                    return
-                except Exception:
-                    pass
-            if is_answer_text(x):
-                candidates.append(x)
-        elif isinstance(x, list):
-            for v in x:
-                walk(v)
-        elif isinstance(x, dict):
-            for v in x.values():
-                walk(v)
-
-    walk(envelopes)
-    if not candidates:
-        return None
-    # Prefer the answer that contains markdown formatting / multiple
-    # sentences over single short fragments.
-    return max(candidates, key=len)
+    for env in reversed(envelopes):
+        if (
+            isinstance(env, list)
+            and len(env) >= 3
+            and env[0] == "wrb.fr"
+            and isinstance(env[2], str)
+        ):
+            try:
+                payload = json.loads(env[2])
+            except Exception:
+                continue
+            if (
+                isinstance(payload, list)
+                and payload
+                and isinstance(payload[0], list)
+                and payload[0]
+                and isinstance(payload[0][0], str)
+            ):
+                return payload[0][0]
+    return None
 
 
 CHAT_SERVICE_PATH = (
