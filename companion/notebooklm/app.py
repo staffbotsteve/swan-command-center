@@ -526,14 +526,38 @@ def _parse_streamed_envelopes(text: str) -> list:
 
 
 def _extract_answer_text(envelopes: list) -> Optional[str]:
-    """Best-effort extractor for the assistant's final answer text from
-    the streamed response. The exact envelope shape was not captured
-    (Chrome's HAR strips streamed bodies), so this scans for the
-    longest string payload that looks like an answer."""
+    """Extract the assistant's clean answer text from the streamed response.
+
+    The streamed response wraps the answer in nested JSON: each envelope
+    of the form ["wrb.fr", <service>, <payload_string>, …] carries a
+    JSON-encoded payload string at position [2]. Inside that payload,
+    the clean answer text sits at position [0]. We unfold those nested
+    JSON strings recursively and pick the longest plausible answer.
+    """
     candidates: list[str] = []
+
+    def is_answer_text(s: str) -> bool:
+        if len(s) < 30:
+            return False
+        # Reject obvious metadata strings (UUIDs, ids, hashes).
+        if re.fullmatch(r"[0-9a-fA-F-]{30,}", s):
+            return False
+        # Accept anything that looks like prose: contains a space and
+        # either punctuation or a newline.
+        return " " in s and any(c in s for c in ".!?\n")
+
     def walk(x):
         if isinstance(x, str):
-            if len(x) >= 60 and ("." in x or "\n" in x):
+            # If the string starts with `[` or `{` it might be a
+            # JSON-encoded sub-structure; recurse into it.
+            stripped = x.strip()
+            if stripped.startswith(("[", "{")):
+                try:
+                    walk(json.loads(stripped))
+                    return
+                except Exception:
+                    pass
+            if is_answer_text(x):
                 candidates.append(x)
         elif isinstance(x, list):
             for v in x:
@@ -541,9 +565,12 @@ def _extract_answer_text(envelopes: list) -> Optional[str]:
         elif isinstance(x, dict):
             for v in x.values():
                 walk(v)
+
     walk(envelopes)
     if not candidates:
         return None
+    # Prefer the answer that contains markdown formatting / multiple
+    # sentences over single short fragments.
     return max(candidates, key=len)
 
 
