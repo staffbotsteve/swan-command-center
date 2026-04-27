@@ -43,6 +43,20 @@ BATCHEXECUTE_PATH = f"/_/{APP_NAME}/data/batchexecute"
 if not SHARED_SECRET:
     raise SystemExit("SHARED_SECRET not set")
 
+# Allow injecting cookies.txt via base64-encoded env var (cleaner than a Fly
+# volume — easier to rotate when Google's session cookies expire). If
+# COOKIES_TXT_B64 is set, decode it to /tmp/cookies.txt on startup and
+# point COOKIES_PATH at it.
+import base64 as _b64
+_cookies_b64 = os.environ.get("COOKIES_TXT_B64")
+if _cookies_b64:
+    _decoded = _b64.b64decode(_cookies_b64).decode("utf-8")
+    _path = "/tmp/cookies.txt"
+    with open(_path, "w", encoding="utf-8") as _fp:
+        _fp.write(_decoded)
+    os.chmod(_path, 0o600)
+    COOKIES_PATH = _path
+
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("notebooklm-companion")
 
