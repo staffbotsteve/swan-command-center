@@ -27,7 +27,7 @@ import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "
 import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
-import { listNotebooks, createNotebook, addSource, queryNotebook, generateReport } from "../src/tools/notebooklm";
+import { listNotebooks, createNotebook, addSource, queryNotebook, research as notebooklmResearch, generateReport } from "../src/tools/notebooklm";
 import { sendMessage as slackSend, listChannels as slackListChannels, searchMessages as slackSearch } from "../src/tools/slack";
 import imessageSend from "../src/tools/imessage";
 
@@ -217,13 +217,28 @@ const nbAddSourceSchema = {
   notebook_id: z.string(),
   url: z.string(),
 };
+const nbHistoryItemSchema = z.object({
+  role: z.enum(["user", "assistant"]),
+  content: z.string(),
+});
 const nbQuerySchema = {
   notebook_id: z.string(),
+  source_ids: z.array(z.string()),
   question: z.string(),
+  history: z.array(nbHistoryItemSchema).optional(),
+  chat_session_id: z.string().optional(),
+};
+const nbResearchSchema = {
+  notebook_id: z.string(),
+  source_ids: z.array(z.string()),
+  question: z.string(),
+  history: z.array(nbHistoryItemSchema).optional(),
+  chat_session_id: z.string().optional(),
 };
 const nbReportSchema = {
   notebook_id: z.string(),
-  style: z.enum(["briefing", "deep_dive", "slide_deck"]).optional(),
+  source_ids: z.array(z.string()),
+  style: z.string().optional(),
 };
 const slackSendSchema = {
   channel: z.string(),
@@ -287,6 +302,7 @@ export function buildSwanToolServer() {
       wrap(createNotebook, nbCreateSchema),
       wrap(addSource, nbAddSourceSchema),
       wrap(queryNotebook, nbQuerySchema),
+      wrap(notebooklmResearch, nbResearchSchema),
       wrap(generateReport, nbReportSchema),
       wrap(slackSend, slackSendSchema),
       wrap(slackListChannels, slackListChannelsSchema),
@@ -335,6 +351,7 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__notebooklm_create_notebook",
   "mcp__swan-tools__notebooklm_add_source",
   "mcp__swan-tools__notebooklm_query",
+  "mcp__swan-tools__notebooklm_research",
   "mcp__swan-tools__notebooklm_generate_report",
   "mcp__swan-tools__slack_send_message",
   "mcp__swan-tools__slack_list_channels",

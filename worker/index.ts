@@ -59,6 +59,7 @@ const ROLE_TOOLS: Record<string, string[]> = {
     "mcp__swan-tools__notebooklm_create_notebook",
     "mcp__swan-tools__notebooklm_add_source",
     "mcp__swan-tools__notebooklm_query",
+    "mcp__swan-tools__notebooklm_research",
     "mcp__swan-tools__notebooklm_generate_report",
     "mcp__swan-tools__classify",
     "mcp__swan-tools__hive_query",
