@@ -126,21 +126,17 @@ def _scrape_bootstrap(s: requests.Session) -> dict[str, str]:
         )
     html = r.text
 
-    # bl: appears as "bl":"boq_labs-tailwind-frontend_<...>"
-    m = re.search(r'"bl"\s*:\s*"([^"]+)"', html)
-    if not m:
-        m = re.search(r'\\"bl\\":\\"([^"\\]+)\\"', html)
+    # The three tokens live inside `window.WIZ_global_data = {...}`:
+    #   KjTSIf  — bl  (backend version, e.g. boq_labs-tailwind-frontend_…)
+    #   FdrFJe  — f.sid  (numeric session id)
+    #   SNlM0e  — at  (anti-CSRF token, "ALkAt…:<unix-ms>")
+    # Confirmed via /tmp/notebooklm_home.html on 2026-04-26.
+    m = re.search(r'"KjTSIf"\s*:\s*"([^"]+)"', html)
     bl = m.group(1) if m else None
 
-    # f.sid: appears as "FdrFJe":"<19-digit>" historically; in newer builds
-    # it's exposed as the "f.sid" url param when the page first calls
-    # batchexecute. We can also extract from `WIZ_global_data` if present.
-    m = re.search(r'"FdrFJe"\s*:\s*"(\d+)"', html)
-    if not m:
-        m = re.search(r'"f\.sid"\s*:\s*"(\d+)"', html)
+    m = re.search(r'"FdrFJe"\s*:\s*"(-?\d+)"', html)
     fsid = m.group(1) if m else None
 
-    # at: anti-CSRF token, exposed under "SNlM0e"
     m = re.search(r'"SNlM0e"\s*:\s*"([^"]+)"', html)
     at = m.group(1) if m else None
 
