@@ -358,7 +358,10 @@ class QueryBody(BaseModel):
 
 class GenerateReportBody(BaseModel):
     notebook_id: str
-    style: Optional[str] = "briefing"
+    source_ids: list[str]
+    # Confirmed: "interactive_mindmap". Likely (pending capture):
+    # "briefing_doc", "study_guide", "faq", "timeline", "audio_overview".
+    style: str = "interactive_mindmap"
 
 
 # ─── Endpoints ─────────────────────────────────────────────────────────────
@@ -452,13 +455,20 @@ def add_source(body: AddSourceBody, authorization: Optional[str] = Header(None))
 def query(body: QueryBody, authorization: Optional[str] = Header(None)):
     """Ask a question about a notebook (chat).
 
-    PENDING CALIBRATION — need a HAR capture of "ask question in chat".
-    Likely uses a streaming response or a different rpcid.
+    PENDING CALIBRATION — capture/2 ended without a chat call. To wire
+    this, do a HAR capture containing ONLY a chat question:
+
+      1. Open notebook, type a question into the chat box, press Enter.
+      2. Wait for the answer to fully render.
+      3. Right-click → Copy all as HAR → paste to disk.
+
+    The rpcid will appear once and the question text will be visible
+    in the request body when grepped.
     """
     require_secret(authorization)
     raise HTTPException(
         status_code=501,
-        detail="query endpoint not yet calibrated — capture step 4",
+        detail="query endpoint not yet calibrated — capture chat-only HAR",
     )
 
 
@@ -466,12 +476,36 @@ def query(body: QueryBody, authorization: Optional[str] = Header(None)):
 def generate_report(
     body: GenerateReportBody, authorization: Optional[str] = Header(None)
 ):
-    """Generate a briefing/study guide/FAQ/timeline report from a notebook.
+    """Kick off generation of a Studio artifact (mind map confirmed).
 
-    PENDING CALIBRATION — need a HAR capture of "click Generate in Studio".
+    Calibrated rpcid: yyryJe   args:
+      [
+        [[[<source_ids>]]],
+        null, null, null, null,
+        [<style_string>, [["[CONTEXT]", ""]], ""],
+        null,
+        [2, null, [1], [1]],
+      ]
+
+    Confirmed style: "interactive_mindmap".
+    Likely (pending capture): "briefing_doc", "study_guide", "faq",
+    "timeline", "audio_overview". Pass whatever the UI uses internally.
+
+    NOTE: For interactive_mindmap, NotebookLM generates the content
+    client-side and the browser then uploads the result back via rpcid
+    CYK0Xb. Server-side artifacts (briefing, audio overview) generate
+    on Google's servers and the client polls for completion. This
+    handler only fires the kickoff; result polling is the caller's job.
     """
     require_secret(authorization)
-    raise HTTPException(
-        status_code=501,
-        detail="generate_report endpoint not yet calibrated — capture step 5",
+    args = [
+        [[[sid] for sid in body.source_ids]],
+        None, None, None, None,
+        [body.style, [["[CONTEXT]", ""]], ""],
+        None,
+        [2, None, [1], [1]],
+    ]
+    result = call_rpc(
+        "yyryJe", args, source_path=f"/notebook/{body.notebook_id}"
     )
+    return {"raw": result}
