@@ -27,10 +27,11 @@ import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "
 import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
-// NotebookLM is now provided by the external `notebooklm-mcp` stdio
-// server (see worker/index.ts mcpServers config). The HTTP-companion
-// tool wrappers in src/tools/notebooklm.ts are no longer registered;
-// the file is kept on disk as documentation of the Path A approach.
+import {
+  listNotebooks as nbList,
+  searchNotebooks as nbSearch,
+  ask as nbAsk,
+} from "../src/tools/notebooklm";
 import { sendMessage as slackSend, listChannels as slackListChannels, searchMessages as slackSearch } from "../src/tools/slack";
 import imessageSend from "../src/tools/imessage";
 
@@ -214,7 +215,14 @@ const driveWriteFileSchema = {
   parent_folder_id: z.string().optional(),
   mime_type: z.string().optional(),
 };
-// (No notebooklm schemas here — provided by external notebooklm-mcp.)
+const nbListSchema = {} as z.ZodRawShape;
+const nbSearchSchema = { query: z.string() };
+const nbAskSchema = {
+  notebook_id: z.string(),
+  question: z.string(),
+  conversation_id: z.string().optional(),
+  source_ids: z.array(z.string()).optional(),
+};
 const slackSendSchema = {
   channel: z.string(),
   text: z.string(),
@@ -273,6 +281,9 @@ export function buildSwanToolServer() {
       wrap(listFiles, driveListFilesSchema),
       wrap(readFile, driveReadFileSchema),
       wrap(driveWriteFile, driveWriteFileSchema),
+      wrap(nbList, nbListSchema),
+      wrap(nbSearch, nbSearchSchema),
+      wrap(nbAsk, nbAskSchema),
       wrap(slackSend, slackSendSchema),
       wrap(slackListChannels, slackListChannelsSchema),
       wrap(slackSearch, slackSearchSchema),
@@ -316,6 +327,9 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__drive_list_files",
   "mcp__swan-tools__drive_read_file",
   "mcp__swan-tools__drive_write_file",
+  "mcp__swan-tools__notebooklm_list_notebooks",
+  "mcp__swan-tools__notebooklm_search",
+  "mcp__swan-tools__notebooklm_ask",
   "mcp__swan-tools__slack_send_message",
   "mcp__swan-tools__slack_list_channels",
   "mcp__swan-tools__slack_search_messages",

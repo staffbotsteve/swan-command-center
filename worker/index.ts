@@ -55,18 +55,12 @@ const ROLE_TOOLS: Record<string, string[]> = {
     "mcp__swan-tools__drive_read_file",
     "mcp__swan-tools__drive_write_file",
     "mcp__swan-tools__doc_parse",
-    // NotebookLM via external notebooklm-mcp (browser-automation,
-    // persistent Chrome profile). On first call the user signs in
-    // through a browser popup; subsequent calls reuse that session.
-    "mcp__notebooklm__ask_question",
-    "mcp__notebooklm__list_notebooks",
-    "mcp__notebooklm__select_notebook",
-    "mcp__notebooklm__get_notebook",
-    "mcp__notebooklm__setup_auth",
-    "mcp__notebooklm__add_notebook",
-    "mcp__notebooklm__update_notebook",
-    "mcp__notebooklm__search_notebooks",
-    "mcp__notebooklm__get_health",
+    // NotebookLM via local notebooklm-py CLI (cookie auth, persisted
+    // session at ~/.notebooklm/storage_state.json). Auto-discovers
+    // every notebook in the user's account — no manual registration.
+    "mcp__swan-tools__notebooklm_list_notebooks",
+    "mcp__swan-tools__notebooklm_search",
+    "mcp__swan-tools__notebooklm_ask",
     "mcp__swan-tools__classify",
     "mcp__swan-tools__hive_query",
   ],
@@ -262,30 +256,18 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       settingSources: [],
       mcpServers: {
         "swan-tools": buildSwanToolServer(),
-        // External stdio MCP server for NotebookLM. Persists a Chrome
-        // profile under ~/Library/Application Support/notebooklm-mcp/
-        // so authentication survives across worker restarts. First call
-        // pops a browser window for Google login; subsequent calls
-        // reuse the persisted session.
-        notebooklm: {
-          command: "npx",
-          args: ["-y", "notebooklm-mcp@latest"],
-        },
       },
       allowedTools: toolsForRole(role),
       // Permission gate. The worker is headless — there's no human at
       // a keyboard to approve per-call prompts — so we replace the
       // default prompt-the-user behavior with an explicit allowlist:
       //   - mcp__swan-tools__*   in-process tools we wrote and audit
-      //   - mcp__notebooklm__*   the external notebooklm-mcp server
       //   - Task                 SDK subagent-dispatch tool
       // Everything else is denied. allowedTools (per-role) is the
       // primary gate; this callback is defense in depth on top of it.
       canUseTool: async (toolName, input) => {
         const allow =
-          toolName.startsWith("mcp__swan-tools__") ||
-          toolName.startsWith("mcp__notebooklm__") ||
-          toolName === "Task";
+          toolName.startsWith("mcp__swan-tools__") || toolName === "Task";
         if (allow) return { behavior: "allow", updatedInput: input };
         return {
           behavior: "deny",
