@@ -45,3 +45,5 @@ next-env.d.ts
 __pycache__/
 *.pyc
 *.pyo
+companion/notebooklm/.venv/
+companion/notebooklm/.env
