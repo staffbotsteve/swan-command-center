@@ -273,6 +273,25 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
         },
       },
       allowedTools: toolsForRole(role),
+      // Permission gate. The worker is headless — there's no human at
+      // a keyboard to approve per-call prompts — so we replace the
+      // default prompt-the-user behavior with an explicit allowlist:
+      //   - mcp__swan-tools__*   in-process tools we wrote and audit
+      //   - mcp__notebooklm__*   the external notebooklm-mcp server
+      //   - Task                 SDK subagent-dispatch tool
+      // Everything else is denied. allowedTools (per-role) is the
+      // primary gate; this callback is defense in depth on top of it.
+      canUseTool: async (toolName, input) => {
+        const allow =
+          toolName.startsWith("mcp__swan-tools__") ||
+          toolName.startsWith("mcp__notebooklm__") ||
+          toolName === "Task";
+        if (allow) return { behavior: "allow", updatedInput: input };
+        return {
+          behavior: "deny",
+          message: `tool ${toolName} not on worker allowlist`,
+        };
+      },
       ...(subagents ? { agents: subagents } : {}),
     },
   });
