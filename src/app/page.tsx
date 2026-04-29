@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import { AgentRoster } from "@/components/AgentRoster";
 import { VaultPanel } from "@/components/VaultPanel";
 import { DispatchPanel } from "@/components/DispatchPanel";
 import { SessionViewer } from "@/components/SessionViewer";
+import { Header } from "@/components/Header";
 
 interface Agent {
   id: string;
@@ -77,29 +77,11 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen">
-      {/* Header */}
-      <header className="border-b border-card-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              Swan Command Center
-            </h1>
-            <p className="text-sm text-muted mt-0.5">
-              Multi-company AI agent operations
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
-            <nav className="flex items-center gap-1 mr-4">
-              <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">
-                Dashboard
-              </span>
-              <Link
-                href="/assistant"
-                className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30 transition-colors"
-              >
-                Assistant
-              </Link>
-            </nav>
+      <Header
+        title="Swan Command Center"
+        subtitle="Multi-company AI agent operations"
+        rightActions={
+          <>
             <button
               onClick={() => {
                 loadAgents();
@@ -109,18 +91,12 @@ export default function Dashboard() {
             >
               Refresh
             </button>
-            <a
-              href="/api/auth/signout"
-              className="px-3 py-1.5 text-sm border border-card-border rounded hover:bg-card-border/50 transition-colors"
-            >
-              Sign out
-            </a>
             <div className="text-xs text-muted font-mono">
               {agents.length} departments · {sessions.length} sessions
             </div>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       {/* Main Grid */}
       <main className="grid grid-cols-12 gap-0 min-h-[calc(100vh-73px)]">

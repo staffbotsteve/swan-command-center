@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
+import { Header } from "@/components/Header";
 
 interface LoyaltyProgram {
   provider: string;
@@ -189,7 +189,7 @@ export default function AssistantPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <Header />
+        <AssistantHeader />
         <div className="flex items-center justify-center h-[calc(100vh-73px)]">
           <div className="text-muted">Loading configuration...</div>
         </div>
@@ -200,7 +200,7 @@ export default function AssistantPage() {
   if (!config) {
     return (
       <div className="min-h-screen">
-        <Header />
+        <AssistantHeader />
         <div className="flex items-center justify-center h-[calc(100vh-73px)]">
           <div className="text-danger">Failed to load configuration</div>
         </div>
@@ -218,7 +218,7 @@ export default function AssistantPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Header saving={saving} saved={saved} onSave={save} />
+      <AssistantHeader saving={saving} saved={saved} onSave={save} />
 
       <div className="flex flex-1 min-h-0">
         {/* Left sidebar: entities */}
@@ -603,7 +603,7 @@ function GlobalSettings({
 
 /* ─── Shared UI ─── */
 
-function Header({
+function AssistantHeader({
   saving,
   saved,
   onSave,
@@ -613,40 +613,24 @@ function Header({
   onSave?: () => void;
 }) {
   return (
-    <header className="border-b border-card-border bg-card px-6 py-4 shrink-0">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">
-              Swan Command Center
-            </h1>
-            <p className="text-sm text-muted mt-0.5">
-              Assistant Configuration
-            </p>
-          </div>
-          <nav className="flex items-center gap-1 ml-4">
-            <Link href="/"
-              className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30 transition-colors">
-              Dashboard
-            </Link>
-            <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">
-              Assistant
-            </span>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3">
-          {saved && (
-            <span className="text-sm text-success">Saved</span>
-          )}
+    <Header
+      title="Swan Command Center"
+      subtitle="Assistant Configuration"
+      rightActions={
+        <>
+          {saved && <span className="text-sm text-success">Saved</span>}
           {onSave && (
-            <button onClick={onSave} disabled={saving}
-              className="px-4 py-1.5 text-sm bg-accent hover:bg-accent-hover text-white font-medium rounded transition-colors disabled:opacity-40">
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="px-4 py-1.5 text-sm bg-accent hover:bg-accent-hover text-white font-medium rounded transition-colors disabled:opacity-40"
+            >
               {saving ? "Saving..." : "Save to Vault"}
             </button>
           )}
-        </div>
-      </div>
-    </header>
+        </>
+      }
+    />
   );
 }
 

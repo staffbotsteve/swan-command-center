@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import type { AgentRegistryEntry, SkillRegistryEntry } from "@/types/db";
+import { Header } from "@/components/Header";
 
 type Tab = "agents" | "skills";
 
@@ -50,23 +50,10 @@ export default function RegistryPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-card-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Registry</h1>
-            <p className="text-sm text-muted mt-0.5">
-              Every agent and skill, permanent and ephemeral. Promotion happens here.
-            </p>
-          </div>
-          <nav className="flex items-center gap-1">
-            <Link href="/" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Dashboard</Link>
-            <Link href="/hive" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Hive</Link>
-            <Link href="/memory" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Memory</Link>
-            <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">Registry</span>
-            <Link href="/assistant" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Assistant</Link>
-          </nav>
-        </div>
-      </header>
+      <Header
+        title="Registry"
+        subtitle="Every agent and skill, permanent and ephemeral. Promotion happens here."
+      />
 
       <main className="p-6 max-w-5xl mx-auto">
         {error && (

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import type { Task } from "@/types/db";
+import { Header } from "@/components/Header";
 
 const STATUS_ORDER = ["queued", "in_flight", "awaiting_user", "done", "failed"] as const;
 
@@ -70,45 +70,34 @@ export default function HivePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-card-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Hive Mind</h1>
-            <p className="text-sm text-muted mt-0.5">
-              Every agent's work, cross-readable. {tasks.length} recent tasks.
-            </p>
+      <Header
+        title="Hive Mind"
+        subtitle={`Every agent's work, cross-readable. ${tasks.length} recent tasks.`}
+        belowBar={
+          <div className="flex items-center gap-3 text-sm">
+            <input
+              type="text"
+              value={filterCompany}
+              onChange={(e) => setFilterCompany(e.target.value)}
+              placeholder="filter company..."
+              className="px-2 py-1 bg-card border border-card-border rounded text-xs w-48"
+            />
+            <input
+              type="text"
+              value={filterProject}
+              onChange={(e) => setFilterProject(e.target.value)}
+              placeholder="filter project..."
+              className="px-2 py-1 bg-card border border-card-border rounded text-xs w-48"
+            />
+            <button
+              onClick={load}
+              className="px-3 py-1 text-xs border border-card-border rounded hover:bg-card-border/50"
+            >
+              Refresh
+            </button>
           </div>
-          <nav className="flex items-center gap-1">
-            <Link href="/" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Dashboard</Link>
-            <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">Hive</span>
-            <Link href="/memory" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Memory</Link>
-            <Link href="/registry" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Registry</Link>
-            <Link href="/assistant" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Assistant</Link>
-          </nav>
-        </div>
-        <div className="flex items-center gap-3 mt-3 text-sm">
-          <input
-            type="text"
-            value={filterCompany}
-            onChange={(e) => setFilterCompany(e.target.value)}
-            placeholder="filter company..."
-            className="px-2 py-1 bg-card border border-card-border rounded text-xs w-48"
-          />
-          <input
-            type="text"
-            value={filterProject}
-            onChange={(e) => setFilterProject(e.target.value)}
-            placeholder="filter project..."
-            className="px-2 py-1 bg-card border border-card-border rounded text-xs w-48"
-          />
-          <button
-            onClick={load}
-            className="px-3 py-1 text-xs border border-card-border rounded hover:bg-card-border/50"
-          >
-            Refresh
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="p-6">
         {error && (
