@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import queue
 import signal
 import sys
 from pathlib import Path
@@ -84,6 +85,9 @@ async def run() -> None:
         system_instruction=types.Content(
             parts=[types.Part(text=SYSTEM_PROMPT)]
         ),
+        # Surface what each side actually said as text we can print.
+        input_audio_transcription=types.AudioTranscriptionConfig(),
+        output_audio_transcription=types.AudioTranscriptionConfig(),
     )
 
     print(f"connecting to {MODEL}...", flush=True)
@@ -91,7 +95,12 @@ async def run() -> None:
         print("connected. speak naturally; ctrl+c to stop.", flush=True)
 
         mic_q: asyncio.Queue[bytes] = asyncio.Queue()
-        out_q: asyncio.Queue[bytes] = asyncio.Queue()
+        # Thread-safe queue for the speaker callback (which runs on
+        # sounddevice's audio thread, not the asyncio loop).
+        spk_q: "queue.Queue[bytes]" = queue.Queue()
+        # Pending tail of an oversized chunk, kept across speaker
+        # callbacks so we never drop bytes.
+        spk_tail: dict[str, bytes] = {"buf": b""}
         loop = asyncio.get_running_loop()
 
         def mic_callback(indata, frames, time_info, status):  # noqa: ARG001
@@ -103,21 +112,20 @@ async def run() -> None:
         def speaker_callback(outdata, frames, time_info, status):  # noqa: ARG001
             if status:
                 print(f"[spk] {status}", file=sys.stderr)
-            try:
-                chunk = out_q.get_nowait()
-            except asyncio.QueueEmpty:
-                outdata.fill(0)
-                return
             need = frames * 2  # int16 mono
-            if len(chunk) < need:
-                # pad short tails with silence
-                chunk = chunk + b"\x00" * (need - len(chunk))
-            elif len(chunk) > need:
-                # stash the leftover for the next call
-                leftover = chunk[need:]
-                chunk = chunk[:need]
-                # cheap re-queue of leftover at the head
-                loop.call_soon_threadsafe(out_q.put_nowait, leftover)
+            buf = spk_tail["buf"]
+            while len(buf) < need:
+                try:
+                    buf += spk_q.get_nowait()
+                except queue.Empty:
+                    break
+            if len(buf) >= need:
+                chunk = buf[:need]
+                spk_tail["buf"] = buf[need:]
+            else:
+                # Not enough audio: play what we have, pad the rest.
+                chunk = buf + b"\x00" * (need - len(buf))
+                spk_tail["buf"] = b""
             samples = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32767.0
             outdata[:, 0] = samples
 
@@ -129,9 +137,35 @@ async def run() -> None:
                 )
 
         async def recv_loop() -> None:
+            user_buf = ""
+            asst_buf = ""
             async for response in session.receive():
                 if response.data:
-                    await out_q.put(response.data)
+                    spk_q.put(response.data)
+                # Streamed audio transcripts arrive in small fragments;
+                # accumulate and flush on punctuation/turn boundaries.
+                sc = getattr(response, "server_content", None)
+                if sc:
+                    in_t = getattr(sc, "input_transcription", None)
+                    if in_t and getattr(in_t, "text", None):
+                        user_buf += in_t.text
+                        if any(c in user_buf for c in ".!?\n") or len(user_buf) > 80:
+                            print(f"[you] {user_buf.strip()}", flush=True)
+                            user_buf = ""
+                    out_t = getattr(sc, "output_transcription", None)
+                    if out_t and getattr(out_t, "text", None):
+                        asst_buf += out_t.text
+                        if any(c in asst_buf for c in ".!?\n") or len(asst_buf) > 80:
+                            print(f"[assistant] {asst_buf.strip()}", flush=True)
+                            asst_buf = ""
+                    # End-of-turn — flush whatever's left.
+                    if getattr(sc, "turn_complete", False):
+                        if user_buf.strip():
+                            print(f"[you] {user_buf.strip()}", flush=True)
+                            user_buf = ""
+                        if asst_buf.strip():
+                            print(f"[assistant] {asst_buf.strip()}", flush=True)
+                            asst_buf = ""
                 if response.text:
                     print(f"[assistant] {response.text}", flush=True)
 
