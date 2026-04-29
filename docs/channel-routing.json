@@ -36,7 +36,6 @@
       "external_id": "C0AVCG731TL",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#swan-bill — humans converse here; bot only on @mention"
     },
     {
@@ -44,7 +43,6 @@
       "external_id": "C0ASFSGC2TS",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#all-swan-bill — humans converse here; bot only on @mention"
     },
     {
@@ -52,7 +50,6 @@
       "external_id": "C0AV949ABHT",
       "agent_role": "main",
       "company": "E2S Transportation LLC",
-      "mentions_only": true,
       "notes": "#e2s-transport"
     },
     {
@@ -60,7 +57,6 @@
       "external_id": "C0AV949L2G5",
       "agent_role": "main",
       "company": "E2S Properties AZ LLC",
-      "mentions_only": true,
       "notes": "#e2s-az"
     },
     {
@@ -68,7 +64,6 @@
       "external_id": "C0AVCG8RYP4",
       "agent_role": "main",
       "company": "e2s Properties LLC",
-      "mentions_only": true,
       "notes": "#e2s-properties"
     },
     {
@@ -76,7 +71,6 @@
       "external_id": "C0AUX2RJ1JT",
       "agent_role": "main",
       "company": "e2s Hospitality CA LLC",
-      "mentions_only": true,
       "notes": "#hosp-ca"
     },
     {
@@ -84,7 +78,6 @@
       "external_id": "C0AV94BV45B",
       "agent_role": "main",
       "company": "e2s Hospitality NV LLC",
-      "mentions_only": true,
       "notes": "#hosp-nv"
     },
     {
@@ -92,7 +85,6 @@
       "external_id": "C0B0QN3KXNE",
       "agent_role": "main",
       "company": "Providence Fire & Rescue Inc.",
-      "mentions_only": true,
       "notes": "#providence — Aviation umbrella: capital raise, helicopter acquisition, N21JZ, R22 training"
     },
     {
@@ -100,7 +92,6 @@
       "external_id": "C0B0NLAKK7G",
       "agent_role": "main",
       "company": "Providence Fire & Rescue Inc.",
-      "mentions_only": true,
       "notes": "#providence-heli-watch — Aviation tracking app"
     },
     {
@@ -108,7 +99,6 @@
       "external_id": "C0B0MA5QDL5",
       "agent_role": "main",
       "company": "Providence Fire & Rescue Inc.",
-      "mentions_only": true,
       "notes": "#blackhawk-rescue-hero"
     },
     {
@@ -116,7 +106,6 @@
       "external_id": "C0B0QN57Q4S",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#project-falcon — K-12 SIS pilot at CBHS"
     },
     {
@@ -124,7 +113,6 @@
       "external_id": "C0B0NLB72UE",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#sosfiler — AI Secretary of State filings"
     },
     {
@@ -132,7 +120,6 @@
       "external_id": "C0B1K0WKXEU",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#permitvantage — AI building permit expediting"
     },
     {
@@ -140,7 +127,6 @@
       "external_id": "C0B098MFFRV",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#rampvantage"
     },
     {
@@ -148,7 +134,6 @@
       "external_id": "C0B0UA44UUC",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#sleepy-storybook — Bedtime stories SaaS, live revenue"
     },
     {
@@ -156,7 +141,6 @@
       "external_id": "C0B1K0Y98DN",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#oz-lease-scout"
     },
     {
@@ -164,21 +148,18 @@
       "external_id": "C0B0NLHB1AA",
       "agent_role": "main",
       "company": "SwanBill LLC",
-      "mentions_only": true,
       "notes": "#deftforge — DeftForge marketing site"
     },
     {
       "channel": "slack",
       "external_id": "C0B098RRLPR",
       "agent_role": "main",
-      "mentions_only": true,
       "notes": "#cb-extravaganza — CBHS philanthropic fundraiser"
     },
     {
       "channel": "slack",
       "external_id": "C0B098SEMST",
       "agent_role": "main",
-      "mentions_only": true,
       "notes": "#mountain-shadows-4120 — Real estate project"
     },
     {
@@ -209,14 +190,12 @@
       "channel": "slack",
       "external_id": "C0B1K1B9TME",
       "agent_role": "main",
-      "mentions_only": true,
       "notes": "#5909-e-sanna — Real estate project"
     },
     {
       "channel": "slack",
       "external_id": "C0B0NLT5BNJ",
       "agent_role": "main",
-      "mentions_only": true,
       "notes": "#6040-n-camelback — Real estate (active)"
     }
   ]
