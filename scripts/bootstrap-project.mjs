@@ -47,8 +47,8 @@ if (!slug) {
   console.error("ERROR: --slug PROJECT_SLUG is required (kebab-case, e.g. my-new-project)");
   process.exit(1);
 }
-if (!/^[a-z][a-z0-9-]*$/.test(slug)) {
-  console.error(`ERROR: slug must be lowercase letters/digits/hyphens, starting with a letter. got: ${slug}`);
+if (!/^[a-z0-9][a-z0-9-]*$/.test(slug)) {
+  console.error(`ERROR: slug must be lowercase letters/digits/hyphens. got: ${slug}`);
   process.exit(1);
 }
 

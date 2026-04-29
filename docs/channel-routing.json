@@ -86,6 +86,138 @@
       "company": "e2s Hospitality NV LLC",
       "mentions_only": true,
       "notes": "#hosp-nv"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0QN3KXNE",
+      "agent_role": "main",
+      "company": "Providence Fire & Rescue Inc.",
+      "mentions_only": true,
+      "notes": "#providence — Aviation umbrella: capital raise, helicopter acquisition, N21JZ, R22 training"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0NLAKK7G",
+      "agent_role": "main",
+      "company": "Providence Fire & Rescue Inc.",
+      "mentions_only": true,
+      "notes": "#providence-heli-watch — Aviation tracking app"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0MA5QDL5",
+      "agent_role": "main",
+      "company": "Providence Fire & Rescue Inc.",
+      "mentions_only": true,
+      "notes": "#blackhawk-rescue-hero"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0QN57Q4S",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#project-falcon — K-12 SIS pilot at CBHS"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0NLB72UE",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#sosfiler — AI Secretary of State filings"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B1K0WKXEU",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#permitvantage — AI building permit expediting"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B098MFFRV",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#rampvantage"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0UA44UUC",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#sleepy-storybook — Bedtime stories SaaS, live revenue"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B1K0Y98DN",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#oz-lease-scout"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0NLHB1AA",
+      "agent_role": "main",
+      "company": "SwanBill LLC",
+      "mentions_only": true,
+      "notes": "#deftforge — DeftForge marketing site"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B098RRLPR",
+      "agent_role": "main",
+      "mentions_only": true,
+      "notes": "#cb-extravaganza — CBHS philanthropic fundraiser"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B098SEMST",
+      "agent_role": "main",
+      "mentions_only": true,
+      "notes": "#mountain-shadows-4120 — Real estate project"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0QNC56E6",
+      "agent_role": "dev",
+      "notes": "#swan-command-center — Internal: this repo"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B098TN92T",
+      "agent_role": "main",
+      "notes": "#swan-vault — Internal: knowledge base"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0QNECUJE",
+      "agent_role": "ops",
+      "notes": "#taxes — Personal: taxes"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B1K16N18Q",
+      "agent_role": "comms",
+      "notes": "#personal — Personal: catch-all"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B1K1B9TME",
+      "agent_role": "main",
+      "mentions_only": true,
+      "notes": "#5909-e-sanna — Real estate project"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0NLT5BNJ",
+      "agent_role": "main",
+      "mentions_only": true,
+      "notes": "#6040-n-camelback — Real estate (active)"
     }
   ]
 }
