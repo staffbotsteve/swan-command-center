@@ -125,3 +125,49 @@ export async function loadVaultContextBlock(role: string): Promise<string> {
 
   return lines.join("\n");
 }
+
+/**
+ * Build a "## Project context" block for a specific project slug.
+ *
+ * Each Slack channel routes to a project (set in channel_routing.project),
+ * and bootstrap-project.mjs creates a vault file at
+ * 01-Projects/<TitleCase(slug)>/CONTEXT.md. This loader reads that
+ * file and surfaces it to the agent so a question like "make changes
+ * to the website" in #providence-heli-watch lands with the correct
+ * project background already in scope.
+ *
+ * Returns "" when the slug is missing or the file doesn't exist.
+ */
+export async function loadProjectContextBlock(
+  projectSlug: string | null | undefined
+): Promise<string> {
+  if (!projectSlug) return "";
+  const titleCase = projectSlug
+    .split("-")
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join("-");
+  const path = `01-Projects/${titleCase}/CONTEXT.md`;
+  const file = await fetchOne(path);
+  if (!file) return "";
+
+  const cap = MAX_INJECTED_CHARS;
+  const body =
+    file.content.length > cap
+      ? file.content.slice(0, cap) + "\n\n[truncated]"
+      : file.content;
+
+  return [
+    "",
+    "---",
+    "## Project context (auto-injected)",
+    "",
+    `This task came in on a channel scoped to project \`${projectSlug}\`. The file below from \`01-Projects/${titleCase}/CONTEXT.md\` is the canonical brief — treat it as authoritative for project facts, status, decisions, and stakeholders. If Steven references "the website" or other ambiguous nouns, he means this project's website.`,
+    "",
+    `### \`${path}\``,
+    "",
+    "```",
+    body,
+    "```",
+    "",
+  ].join("\n");
+}

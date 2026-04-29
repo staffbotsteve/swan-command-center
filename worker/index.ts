@@ -29,7 +29,7 @@ import { sendSlack } from "../src/lib/channels/slack-send";
 import type { Task } from "../src/types/db";
 import { buildSwanToolServer } from "./tools";
 import { maybeStoreMemory } from "../src/lib/memory-pipeline";
-import { loadVaultContextBlock } from "../src/lib/vault-context";
+import { loadVaultContextBlock, loadProjectContextBlock } from "../src/lib/vault-context";
 
 /**
  * Per-role tool isolation. Each role gets only the MCP tools its
@@ -222,10 +222,13 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
   const prompt = input.text ?? "";
   if (!prompt) return { text: "", error: "empty prompt", tokens_in: 0, tokens_out: 0 };
 
-  // Auto-inject per-role vault context. Best-effort — silently skips
-  // missing files so a role works fine before its vault folder exists.
-  const vaultContext = await loadVaultContextBlock(role);
-  const systemPrompt = vaultContext ? def.prompt + vaultContext : def.prompt;
+  // Auto-inject per-role vault context + per-project vault context.
+  // Both are best-effort — missing files are silently skipped.
+  const [vaultContext, projectContext] = await Promise.all([
+    loadVaultContextBlock(role),
+    loadProjectContextBlock(task.project),
+  ]);
+  const systemPrompt = def.prompt + vaultContext + projectContext;
 
   let text = "";
   let tokens_in = 0;

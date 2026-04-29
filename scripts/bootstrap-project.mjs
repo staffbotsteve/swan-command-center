@@ -155,6 +155,9 @@ const newEntry = {
   external_id: channelId,
   agent_role: agentRole,
   ...(company ? { company } : {}),
+  // Project tag drives per-task vault context injection
+  // (loadProjectContextBlock reads 01-Projects/<TitleCase>/CONTEXT.md).
+  project: slug,
   ...(mentionsOnly ? { mentions_only: true } : {}),
   notes: `#${channel}${description ? " — " + description : ""}`,
 };
