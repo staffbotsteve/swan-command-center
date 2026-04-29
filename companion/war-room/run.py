@@ -22,29 +22,46 @@ Stop with Ctrl+C.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import queue
 import signal
 import sys
+import urllib.parse
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import sounddevice as sd
+import urllib.request
 from google import genai
 from google.genai import types
 
 
+_ENV_KEYS = (
+    "GOOGLE_AI_API_KEY",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "GITHUB_PAT",
+    "SLACK_BOT_TOKEN",
+)
+
+
 def load_env_local() -> None:
-    """Read GOOGLE_AI_API_KEY from app/.env.local if not already set."""
-    if os.environ.get("GOOGLE_AI_API_KEY"):
-        return
+    """Read each known key from app/.env.local if not already set."""
     candidate = Path(__file__).resolve().parents[2] / ".env.local"
     if not candidate.exists():
         return
+    needed = {k for k in _ENV_KEYS if not os.environ.get(k)}
+    if not needed:
+        return
     for line in candidate.read_text().splitlines():
-        if line.startswith("GOOGLE_AI_API_KEY="):
-            os.environ["GOOGLE_AI_API_KEY"] = line.split("=", 1)[1].strip()
-            break
+        if "=" not in line:
+            continue
+        k, _, v = line.partition("=")
+        k = k.strip()
+        if k in needed:
+            os.environ[k] = v.strip()
 
 
 load_env_local()
@@ -68,14 +85,199 @@ You serve all 8 of Steven's LLCs (SwanBill, Providence Fire & Rescue,
 E2S Transportation, E2S Properties AZ, e2s Properties, e2s Hospitality
 CA/NV, plus Operations). Treat each as a real business with real stakes.
 
-When Steven asks you to do something concrete (send a message, query
-the task queue, look up a vault note), say "I'll queue that" and stop —
-the v0 build doesn't have tool calls wired yet, so just acknowledge and
-move on rather than pretending to do it.
+You have three tools available:
+- hive_query: get the current task queue (filterable by company, project,
+  status, agent role). Use this when Steven asks "what's on my plate" or
+  "what's queued."
+- vault_read_file: read any markdown file from his Obsidian vault repo
+  (staffbotsteve/swan-vault). Use this for context on people, companies,
+  or projects when Steven references them.
+- slack_send_message: send a message to a Slack channel. Use this when
+  Steven dictates a Slack to send. Confirm aloud with the channel and a
+  short summary before sending.
 
 Default response length: one or two sentences. Go longer only when
 Steven explicitly asks for a briefing or a deep dive.
 """
+
+VAULT_REPO = os.environ.get("VAULT_REPO", "staffbotsteve/swan-vault")
+
+
+# ── Tool declarations (Gemini Live function-calling) ──────────────────────
+
+TOOLS = [
+    types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name="hive_query",
+                description=(
+                    "Return Steven's current task queue across all agents and "
+                    "channels. Filter by company, project, status, or agent role."
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "company": types.Schema(type=types.Type.STRING),
+                        "project": types.Schema(type=types.Type.STRING),
+                        "status": types.Schema(
+                            type=types.Type.STRING,
+                            description="queued | in_flight | awaiting_user | done | failed",
+                        ),
+                        "agent_role": types.Schema(type=types.Type.STRING),
+                        "limit": types.Schema(type=types.Type.INTEGER),
+                    },
+                ),
+            ),
+            types.FunctionDeclaration(
+                name="vault_read_file",
+                description=(
+                    "Read a markdown file from Steven's Obsidian vault on GitHub. "
+                    "Path is relative to the vault root, e.g. "
+                    "'02-Areas/Companies/SwanBill.md'."
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "path": types.Schema(type=types.Type.STRING),
+                    },
+                    required=["path"],
+                ),
+            ),
+            types.FunctionDeclaration(
+                name="slack_send_message",
+                description=(
+                    "Send a Slack message to a channel. Always confirm with "
+                    "Steven aloud before sending. channel can be a channel id "
+                    "(C0...) or '#name'."
+                ),
+                parameters=types.Schema(
+                    type=types.Type.OBJECT,
+                    properties={
+                        "channel": types.Schema(type=types.Type.STRING),
+                        "text": types.Schema(type=types.Type.STRING),
+                        "thread_ts": types.Schema(type=types.Type.STRING),
+                    },
+                    required=["channel", "text"],
+                ),
+            ),
+        ]
+    )
+]
+
+
+# ── Tool implementations ─────────────────────────────────────────────────
+
+
+def _http_json(url: str, method: str = "GET", headers: dict | None = None,
+               body: dict | None = None, timeout: float = 15.0) -> dict | list:
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(
+        url, data=data, method=method, headers=headers or {}
+    )
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        raw = resp.read().decode("utf-8")
+    if not raw:
+        return {}
+    return json.loads(raw)
+
+
+def tool_hive_query(args: dict) -> dict:
+    base = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    if not base or not key:
+        return {"error": "supabase env vars missing"}
+    params: list[tuple[str, str]] = [
+        ("select", "id,channel,company,project,status,created_at,input"),
+        ("order", "created_at.desc"),
+        ("limit", str(args.get("limit") or 20)),
+    ]
+    for col in ("company", "project", "status"):
+        v = args.get(col)
+        if v:
+            params.append((col, f"eq.{v}"))
+    role = args.get("agent_role")
+    if role:
+        # Tasks are joined to agents by agent_id; for v0 just filter at app
+        # level via input metadata. Skipping for now to keep the SQL simple.
+        pass
+    qs = urllib.parse.urlencode(params)
+    url = f"{base}/rest/v1/tasks?{qs}"
+    rows = _http_json(
+        url,
+        headers={
+            "apikey": key,
+            "Authorization": f"Bearer {key}",
+            "Accept": "application/json",
+        },
+    )
+    return {"tasks": rows, "count": len(rows) if isinstance(rows, list) else 0}
+
+
+def tool_vault_read_file(args: dict) -> dict:
+    path = args.get("path", "").lstrip("/")
+    pat = os.environ.get("GITHUB_PAT")
+    if not pat:
+        return {"error": "GITHUB_PAT missing"}
+    if not path:
+        return {"error": "path required"}
+    url = f"https://api.github.com/repos/{VAULT_REPO}/contents/{urllib.parse.quote(path)}"
+    try:
+        resp = _http_json(
+            url,
+            headers={
+                "Authorization": f"Bearer {pat}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "swan-war-room",
+            },
+        )
+    except Exception as e:
+        return {"error": f"vault fetch: {e}"}
+    if isinstance(resp, dict) and resp.get("encoding") == "base64":
+        import base64
+        try:
+            content = base64.b64decode(resp["content"]).decode("utf-8")
+        except Exception as e:
+            return {"error": f"decode: {e}"}
+        # Trim very long files to keep voice responses snappy.
+        if len(content) > 4000:
+            content = content[:4000] + "\n…(truncated)"
+        return {"path": path, "content": content}
+    return {"error": "unexpected vault response", "raw": resp}
+
+
+def tool_slack_send_message(args: dict) -> dict:
+    token = os.environ.get("SLACK_BOT_TOKEN")
+    if not token:
+        return {"error": "SLACK_BOT_TOKEN missing"}
+    channel = args.get("channel", "")
+    text = args.get("text", "")
+    if not channel or not text:
+        return {"error": "channel and text required"}
+    body = {"channel": channel, "text": text}
+    if args.get("thread_ts"):
+        body["thread_ts"] = args["thread_ts"]
+    try:
+        resp = _http_json(
+            "https://slack.com/api/chat.postMessage",
+            method="POST",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body=body,
+        )
+    except Exception as e:
+        return {"error": f"slack: {e}"}
+    if not isinstance(resp, dict) or not resp.get("ok"):
+        return {"error": "slack rejected", "raw": resp}
+    return {"ok": True, "channel": resp.get("channel"), "ts": resp.get("ts")}
+
+
+TOOL_DISPATCH: dict[str, Any] = {
+    "hive_query": tool_hive_query,
+    "vault_read_file": tool_vault_read_file,
+    "slack_send_message": tool_slack_send_message,
+}
 
 
 async def run() -> None:
@@ -88,6 +290,7 @@ async def run() -> None:
         # Surface what each side actually said as text we can print.
         input_audio_transcription=types.AudioTranscriptionConfig(),
         output_audio_transcription=types.AudioTranscriptionConfig(),
+        tools=TOOLS,
     )
 
     print(f"connecting to {MODEL}...", flush=True)
@@ -136,12 +339,43 @@ async def run() -> None:
                     audio=types.Blob(data=pcm, mime_type="audio/pcm;rate=16000")
                 )
 
+        async def handle_tool_call(tc) -> None:
+            """Run each requested function and ship the response back."""
+            results: list[types.FunctionResponse] = []
+            for call in (tc.function_calls or []):
+                name = call.name
+                args = dict(call.args or {})
+                print(f"[tool] {name}({json.dumps(args)})", flush=True)
+                fn = TOOL_DISPATCH.get(name)
+                if fn is None:
+                    out = {"error": f"unknown tool {name}"}
+                else:
+                    try:
+                        out = await asyncio.to_thread(fn, args)
+                    except Exception as e:  # noqa: BLE001
+                        out = {"error": f"tool {name} raised: {e}"}
+                # Print a short summary of the tool result for the terminal.
+                summary = json.dumps(out)[:200]
+                print(f"[tool→] {summary}", flush=True)
+                results.append(
+                    types.FunctionResponse(
+                        id=call.id,
+                        name=name,
+                        response=out if isinstance(out, dict) else {"result": out},
+                    )
+                )
+            await session.send_tool_response(function_responses=results)
+
         async def recv_loop() -> None:
             user_buf = ""
             asst_buf = ""
             async for response in session.receive():
                 if response.data:
                     spk_q.put(response.data)
+                # Tool calls — execute and respond.
+                tc = getattr(response, "tool_call", None)
+                if tc:
+                    await handle_tool_call(tc)
                 # Streamed audio transcripts arrive in small fragments;
                 # accumulate and flush on punctuation/turn boundaries.
                 sc = getattr(response, "server_content", None)
