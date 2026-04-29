@@ -40,3 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .env*.local
+
+# python (companion services)
+__pycache__/
+*.pyc
+*.pyo
+companion/notebooklm/.venv/
+companion/notebooklm/.env
+companion/war-room/.venv/
+companion/war-room/.env

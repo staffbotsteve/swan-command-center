@@ -1,141 +1,158 @@
+// NotebookLM tools — thin wrappers around the notebooklm-py CLI.
+//
+// Architecture: notebooklm-py runs locally as a Python venv on the worker
+// machine. Auth is established once via `notebooklm login` (browser popup
+// → Google OAuth → session persisted at ~/.notebooklm/storage_state.json).
+// Each tool here shells out to the CLI, asks for --json output, and
+// returns the parsed result. No HTTP companion, no Fly deploy.
+//
+// CLI: https://github.com/teng-lin/notebooklm-py
+
+import { spawn } from "node:child_process";
 import { defineTool } from "./registry";
 
-const BASE = process.env.NOTEBOOKLM_SERVICE_URL;
-const SECRET = process.env.NOTEBOOKLM_SHARED_SECRET;
+const CLI =
+  process.env.NOTEBOOKLM_CLI ??
+  "/Users/stevenswan/project-folders/swan-command-center/app/companion/notebooklm/.venv/bin/notebooklm";
 
-function authHeaders() {
-  if (!BASE) throw new Error("NOTEBOOKLM_SERVICE_URL not set");
-  if (!SECRET) throw new Error("NOTEBOOKLM_SHARED_SECRET not set");
-  return {
-    Authorization: `Bearer ${SECRET}`,
-    "content-type": "application/json",
-  };
+async function runCli(args: string[], timeoutMs = 60_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const p = spawn(CLI, args, { stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    p.stdout.on("data", (d) => (stdout += d.toString()));
+    p.stderr.on("data", (d) => (stderr += d.toString()));
+    const timer = setTimeout(() => {
+      p.kill("SIGKILL");
+      reject(new Error(`notebooklm CLI timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+    p.on("close", (code) => {
+      clearTimeout(timer);
+      if (code === 0) resolve(stdout);
+      else
+        reject(
+          new Error(
+            `notebooklm CLI exit ${code}: ${(stderr || stdout).slice(0, 400)}`
+          )
+        );
+    });
+    p.on("error", (e) => {
+      clearTimeout(timer);
+      reject(e);
+    });
+  });
 }
 
-async function call<T = unknown>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(BASE + path, {
-    ...init,
-    headers: { ...authHeaders(), ...(init?.headers ?? {}) },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`notebooklm ${path}: ${res.status} ${text.slice(0, 300)}`);
-  }
-  return (await res.json()) as T;
+interface NotebookSummary {
+  index: number;
+  id: string;
+  title: string;
+  is_owner: boolean;
+  created_at: string;
+}
+
+interface ListResult {
+  notebooks: NotebookSummary[];
+  count: number;
 }
 
 // ─── notebooklm.list_notebooks ──────────────────────────────────────────────
 
-export const listNotebooks = defineTool<Record<string, never>, unknown>({
+export const listNotebooks = defineTool<Record<string, never>, ListResult>({
   name: "notebooklm.list_notebooks",
-  description: "List your NotebookLM notebooks (id, title, source count, updated_at).",
+  description:
+    "List every NotebookLM notebook in the signed-in account (auto-discovered, no manual registration). Returns each notebook's id, title, owner status, and creation date. Always call this first when the user references a notebook by name to find the right id.",
   source: "builtin",
   initial_status: "experimental",
   input_schema: { type: "object", properties: {}, additionalProperties: false },
   async handler() {
-    return call("/notebooks");
+    const out = await runCli(["list", "--json"]);
+    return JSON.parse(out) as ListResult;
   },
 });
 
-// ─── notebooklm.create_notebook ─────────────────────────────────────────────
+// ─── notebooklm.search ──────────────────────────────────────────────────────
 
-export interface CreateNotebookInput {
-  title: string;
+export interface SearchInput {
+  query: string;
 }
 
-export const createNotebook = defineTool<CreateNotebookInput, unknown>({
-  name: "notebooklm.create_notebook",
-  description: "Create a new NotebookLM notebook with the given title.",
+export interface SearchResult {
+  matches: NotebookSummary[];
+  total_searched: number;
+}
+
+export const searchNotebooks = defineTool<SearchInput, SearchResult>({
+  name: "notebooklm.search",
+  description:
+    "Find NotebookLM notebooks by case-insensitive title substring match. Use this when the user references a notebook by name (e.g. 'my Bracket Guide notebook') to locate the matching id. Returns all matches; if multiple, ask the user to disambiguate.",
   source: "builtin",
   initial_status: "experimental",
   input_schema: {
     type: "object",
-    properties: { title: { type: "string" } },
-    required: ["title"],
+    properties: { query: { type: "string" } },
+    required: ["query"],
     additionalProperties: false,
   },
-  async handler({ title }) {
-    return call("/notebooks", { method: "POST", body: JSON.stringify({ title }) });
+  async handler({ query }) {
+    const out = await runCli(["list", "--json"]);
+    const data = JSON.parse(out) as ListResult;
+    const q = query.toLowerCase();
+    const matches = data.notebooks.filter((nb) =>
+      nb.title.toLowerCase().includes(q)
+    );
+    return { matches, total_searched: data.count };
   },
 });
 
-// ─── notebooklm.add_source ──────────────────────────────────────────────────
+// ─── notebooklm.ask ─────────────────────────────────────────────────────────
 
-export interface AddSourceInput {
-  notebook_id: string;
-  url: string;
-}
-
-export const addSource = defineTool<AddSourceInput, unknown>({
-  name: "notebooklm.add_source",
-  description: "Add a URL as a source to a NotebookLM notebook.",
-  source: "builtin",
-  initial_status: "experimental",
-  input_schema: {
-    type: "object",
-    properties: {
-      notebook_id: { type: "string" },
-      url: { type: "string" },
-    },
-    required: ["notebook_id", "url"],
-    additionalProperties: false,
-  },
-  async handler(input) {
-    return call("/sources", { method: "POST", body: JSON.stringify(input) });
-  },
-});
-
-// ─── notebooklm.query ───────────────────────────────────────────────────────
-
-export interface QueryInput {
+export interface AskInput {
   notebook_id: string;
   question: string;
+  // Optional — pass to continue an existing conversation. Otherwise a
+  // fresh conversation is started automatically.
+  conversation_id?: string;
+  // Optional — limit grounding to specific source ids within the notebook.
+  source_ids?: string[];
 }
 
-export const queryNotebook = defineTool<QueryInput, unknown>({
-  name: "notebooklm.query",
+export const ask = defineTool<AskInput, unknown>({
+  name: "notebooklm.ask",
   description:
-    "Ask a question against a NotebookLM notebook's sources. Returns the answer and citations.",
+    "Ask a question grounded in a NotebookLM notebook's sources. Returns the answer with inline [1][2] citation markers and source references. Use the conversation_id from a previous answer to continue that thread; otherwise a new conversation starts automatically.",
   source: "builtin",
   initial_status: "experimental",
   input_schema: {
     type: "object",
     properties: {
-      notebook_id: { type: "string" },
+      notebook_id: {
+        type: "string",
+        description: "UUID of the notebook (from list_notebooks/search).",
+      },
       question: { type: "string" },
+      conversation_id: {
+        type: "string",
+        description:
+          "Optional: continue a prior conversation by passing the id returned in a previous answer.",
+      },
+      source_ids: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "Optional: restrict grounding to specific sources within the notebook.",
+      },
     },
     required: ["notebook_id", "question"],
     additionalProperties: false,
   },
-  async handler(input) {
-    return call("/query", { method: "POST", body: JSON.stringify(input) });
-  },
-});
-
-// ─── notebooklm.generate_report ─────────────────────────────────────────────
-
-export interface GenerateReportInput {
-  notebook_id: string;
-  style?: "briefing" | "deep_dive" | "slide_deck";
-}
-
-export const generateReport = defineTool<GenerateReportInput, unknown>({
-  name: "notebooklm.generate_report",
-  description:
-    "Generate a structured report from a NotebookLM notebook. Style: briefing (default), deep_dive, slide_deck.",
-  source: "builtin",
-  initial_status: "experimental",
-  input_schema: {
-    type: "object",
-    properties: {
-      notebook_id: { type: "string" },
-      style: { type: "string", enum: ["briefing", "deep_dive", "slide_deck"] },
-    },
-    required: ["notebook_id"],
-    additionalProperties: false,
-  },
-  async handler(input) {
-    return call("/reports", { method: "POST", body: JSON.stringify(input) });
+  async handler({ notebook_id, question, conversation_id, source_ids }) {
+    const args = ["ask", "-n", notebook_id, "--json"];
+    if (conversation_id) args.push("-c", conversation_id);
+    for (const sid of source_ids ?? []) args.push("-s", sid);
+    args.push(question);
+    const out = await runCli(args, 180_000);
+    return JSON.parse(out);
   },
 });
 

@@ -18,6 +18,6 @@ primary_region = "sjc"
   cpu_kind = "shared"
   cpus = 1
 
-[mounts]
-  source = "notebooklm_data"
-  destination = "/secrets"
+# Cookies are injected via COOKIES_TXT_B64 secret (set with `fly secrets set
+# COOKIES_TXT_B64=$(base64 -i cookies.txt)`). The app decodes them to
+# /tmp/cookies.txt on startup. No persistent volume needed.

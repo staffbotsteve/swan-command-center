@@ -27,7 +27,11 @@ import { balance, listCharges, listCustomers, listInvoices, listPayouts } from "
 import { listThreads, readThread, createDraft, send } from "../src/tools/gmail";
 import { listEvents, createEvent } from "../src/tools/calendar";
 import { listFiles, readFile, writeFile as driveWriteFile } from "../src/tools/drive";
-import { listNotebooks, createNotebook, addSource, queryNotebook, generateReport } from "../src/tools/notebooklm";
+import {
+  listNotebooks as nbList,
+  searchNotebooks as nbSearch,
+  ask as nbAsk,
+} from "../src/tools/notebooklm";
 import { sendMessage as slackSend, listChannels as slackListChannels, searchMessages as slackSearch } from "../src/tools/slack";
 import imessageSend from "../src/tools/imessage";
 
@@ -212,18 +216,12 @@ const driveWriteFileSchema = {
   mime_type: z.string().optional(),
 };
 const nbListSchema = {} as z.ZodRawShape;
-const nbCreateSchema = { title: z.string() };
-const nbAddSourceSchema = {
-  notebook_id: z.string(),
-  url: z.string(),
-};
-const nbQuerySchema = {
+const nbSearchSchema = { query: z.string() };
+const nbAskSchema = {
   notebook_id: z.string(),
   question: z.string(),
-};
-const nbReportSchema = {
-  notebook_id: z.string(),
-  style: z.enum(["briefing", "deep_dive", "slide_deck"]).optional(),
+  conversation_id: z.string().optional(),
+  source_ids: z.array(z.string()).optional(),
 };
 const slackSendSchema = {
   channel: z.string(),
@@ -283,11 +281,9 @@ export function buildSwanToolServer() {
       wrap(listFiles, driveListFilesSchema),
       wrap(readFile, driveReadFileSchema),
       wrap(driveWriteFile, driveWriteFileSchema),
-      wrap(listNotebooks, nbListSchema),
-      wrap(createNotebook, nbCreateSchema),
-      wrap(addSource, nbAddSourceSchema),
-      wrap(queryNotebook, nbQuerySchema),
-      wrap(generateReport, nbReportSchema),
+      wrap(nbList, nbListSchema),
+      wrap(nbSearch, nbSearchSchema),
+      wrap(nbAsk, nbAskSchema),
       wrap(slackSend, slackSendSchema),
       wrap(slackListChannels, slackListChannelsSchema),
       wrap(slackSearch, slackSearchSchema),
@@ -332,10 +328,8 @@ export const SWAN_TOOL_NAMES = [
   "mcp__swan-tools__drive_read_file",
   "mcp__swan-tools__drive_write_file",
   "mcp__swan-tools__notebooklm_list_notebooks",
-  "mcp__swan-tools__notebooklm_create_notebook",
-  "mcp__swan-tools__notebooklm_add_source",
-  "mcp__swan-tools__notebooklm_query",
-  "mcp__swan-tools__notebooklm_generate_report",
+  "mcp__swan-tools__notebooklm_search",
+  "mcp__swan-tools__notebooklm_ask",
   "mcp__swan-tools__slack_send_message",
   "mcp__swan-tools__slack_list_channels",
   "mcp__swan-tools__slack_search_messages",

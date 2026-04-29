@@ -37,6 +37,8 @@ export function DispatchPanel({
     setAutoAssign(null);
     setError(null);
     try {
+      // Step 1: enqueue. Returns task_id immediately; the worker
+      // picks it up and writes status/output back to the row.
       const res = await fetch("/api/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -50,11 +52,33 @@ export function DispatchPanel({
       if (data.auto_assign) {
         setAutoAssign({ role: data.auto_assign.role, reason: data.auto_assign.reason });
       }
-      if (!res.ok || data.error) {
+      if (!res.ok || data.error || !data.task_id) {
         setError(data.error ?? `HTTP ${res.status}`);
         return;
       }
-      setOutput(data.text ?? "(empty response)");
+
+      // Step 2: poll for completion. Worker should claim within a
+      // few seconds; total runtime depends on the model + tool calls.
+      const taskId = data.task_id as string;
+      const deadline = Date.now() + 5 * 60 * 1000; // 5-minute ceiling
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const pollRes = await fetch(`/api/tasks/${taskId}`);
+        if (!pollRes.ok) {
+          setError(`task fetch: HTTP ${pollRes.status}`);
+          return;
+        }
+        const { task: row } = await pollRes.json();
+        if (row.status === "done") {
+          setOutput(row.output?.text ?? "(empty response)");
+          return;
+        }
+        if (row.status === "failed") {
+          setError(row.output?.error ?? "task failed");
+          return;
+        }
+      }
+      setError("task did not complete within 5 minutes");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

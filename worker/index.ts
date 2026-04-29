@@ -55,11 +55,12 @@ const ROLE_TOOLS: Record<string, string[]> = {
     "mcp__swan-tools__drive_read_file",
     "mcp__swan-tools__drive_write_file",
     "mcp__swan-tools__doc_parse",
+    // NotebookLM via local notebooklm-py CLI (cookie auth, persisted
+    // session at ~/.notebooklm/storage_state.json). Auto-discovers
+    // every notebook in the user's account — no manual registration.
     "mcp__swan-tools__notebooklm_list_notebooks",
-    "mcp__swan-tools__notebooklm_create_notebook",
-    "mcp__swan-tools__notebooklm_add_source",
-    "mcp__swan-tools__notebooklm_query",
-    "mcp__swan-tools__notebooklm_generate_report",
+    "mcp__swan-tools__notebooklm_search",
+    "mcp__swan-tools__notebooklm_ask",
     "mcp__swan-tools__classify",
     "mcp__swan-tools__hive_query",
   ],
@@ -253,8 +254,26 @@ async function runTurnForTask(task: Task): Promise<{ text: string; error?: strin
       model: def.model,
       systemPrompt,
       settingSources: [],
-      mcpServers: { "swan-tools": buildSwanToolServer() },
+      mcpServers: {
+        "swan-tools": buildSwanToolServer(),
+      },
       allowedTools: toolsForRole(role),
+      // Permission gate. The worker is headless — there's no human at
+      // a keyboard to approve per-call prompts — so we replace the
+      // default prompt-the-user behavior with an explicit allowlist:
+      //   - mcp__swan-tools__*   in-process tools we wrote and audit
+      //   - Task                 SDK subagent-dispatch tool
+      // Everything else is denied. allowedTools (per-role) is the
+      // primary gate; this callback is defense in depth on top of it.
+      canUseTool: async (toolName, input) => {
+        const allow =
+          toolName.startsWith("mcp__swan-tools__") || toolName === "Task";
+        if (allow) return { behavior: "allow", updatedInput: input };
+        return {
+          behavior: "deny",
+          message: `tool ${toolName} not on worker allowlist`,
+        };
+      },
       ...(subagents ? { agents: subagents } : {}),
     },
   });

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
 import type { Memory } from "@/types/db";
+import { Header } from "@/components/Header";
 
 type Tab = "pinned" | "insights" | "preferences" | "decaying";
 
@@ -43,23 +43,10 @@ export default function MemoryPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-card-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold tracking-tight">Memory</h1>
-            <p className="text-sm text-muted mt-0.5">
-              Hot store. Pinned stay forever. High-importance promoted to vault weekly.
-            </p>
-          </div>
-          <nav className="flex items-center gap-1">
-            <Link href="/" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Dashboard</Link>
-            <Link href="/hive" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Hive</Link>
-            <span className="px-3 py-1.5 text-sm rounded bg-accent/20 text-accent font-medium">Memory</span>
-            <Link href="/registry" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Registry</Link>
-            <Link href="/assistant" className="px-3 py-1.5 text-sm rounded text-muted hover:text-foreground hover:bg-card-border/30">Assistant</Link>
-          </nav>
-        </div>
-      </header>
+      <Header
+        title="Memory"
+        subtitle="Hot store. Pinned stay forever. High-importance promoted to vault weekly."
+      />
 
       <main className="p-6 max-w-4xl mx-auto">
         {error && (
