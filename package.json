@@ -12,7 +12,8 @@
     "worker": "node --env-file=.env.local --import tsx worker/index.ts",
     "worker:dev": "node --env-file=.env.local --import tsx --watch worker/index.ts",
     "channels:list-slack": "node --env-file=.env.local scripts/list-slack-channels.mjs",
-    "channels:seed": "node --env-file=.env.local scripts/seed-channel-routing.mjs"
+    "channels:seed": "node --env-file=.env.local scripts/seed-channel-routing.mjs",
+    "project:bootstrap": "node --env-file=.env.local scripts/bootstrap-project.mjs"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.2.119",
