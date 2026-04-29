@@ -47,3 +47,5 @@ __pycache__/
 *.pyo
 companion/notebooklm/.venv/
 companion/notebooklm/.env
+companion/war-room/.venv/
+companion/war-room/.env
