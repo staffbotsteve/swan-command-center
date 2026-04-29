@@ -6,9 +6,16 @@ Mac and talk to the assistant via the laptop's mic and speaker.
 ## v0 status
 
 - Local mic + speaker (no WebRTC, no Daily.co, no Twilio)
-- Gemini Live as the brain (`gemini-2.0-flash-live-001` by default)
+- Gemini Live as the brain (`gemini-2.5-flash-native-audio-latest` by default)
 - No tool calls yet — pure conversation
-- Costs roughly $0.50–$2 per 10-minute session at current Live pricing
+- Cost: per-second audio I/O at Flash native-audio rates. Verify on
+  the [live pricing page](https://ai.google.dev/pricing) before
+  settling into daily use; run only when actively using it.
+
+To pin a specific snapshot or pick a different live model, set
+`WAR_ROOM_MODEL` in your environment. Other options that work today:
+`gemini-2.5-flash-native-audio-preview-12-2025`,
+`gemini-3.1-flash-live-preview`.
 
 ## Setup (one-time)
 

@@ -11,8 +11,10 @@ Usage:
 Tools (v0): not wired yet. Talks freely with Steven; tool-calling
 into the worker comes in v1 once the audio loop is solid.
 
-Cost: roughly $0.50–$2 per 10-minute session at gemini-2.0-flash-live
-pricing as of 2026-04. Run only when actively using it.
+Cost: native-audio Flash pricing varies (per-second audio I/O,
+typically a few dollars per long session). Verify on the live
+pricing page before settling into daily use; run only when actively
+using it.
 
 Stop with Ctrl+C.
 """
@@ -50,7 +52,7 @@ if not API_KEY:
     print("ERROR: GOOGLE_AI_API_KEY not set (looked in env and app/.env.local)", file=sys.stderr)
     sys.exit(1)
 
-MODEL = os.environ.get("WAR_ROOM_MODEL", "gemini-2.0-flash-live-001")
+MODEL = os.environ.get("WAR_ROOM_MODEL", "gemini-2.5-flash-native-audio-latest")
 INPUT_SAMPLE_RATE = 16_000   # Gemini Live expects 16kHz input
 OUTPUT_SAMPLE_RATE = 24_000  # Live returns 24kHz output
 CHANNELS = 1
