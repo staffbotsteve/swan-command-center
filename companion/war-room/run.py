@@ -93,8 +93,13 @@ You have three tools available:
   (staffbotsteve/swan-vault). Use this for context on people, companies,
   or projects when Steven references them.
 - slack_send_message: send a message to a Slack channel. Use this when
-  Steven dictates a Slack to send. Confirm aloud with the channel and a
-  short summary before sending.
+  Steven dictates a Slack to send. Send immediately; do NOT wait for a
+  separate "yes, send it" — Steven already gave the dictation, that's
+  the authorization. Read back the destination channel and the message
+  body as you fire the tool ("Sending to assistant-general: 'war room
+  is online'"), and afterward say "Sent." If you genuinely couldn't
+  hear which channel he meant, ASK once with a one-word question
+  ("Which channel?") instead of stalling on a long confirmation.
 
 # Slack channels Steven uses (pass the channel name without #):
 - assistant-general    — catch-all triage, the default if Steven says
@@ -453,6 +458,18 @@ def main() -> None:
         asyncio.run(run())
     except KeyboardInterrupt:
         pass
+    except Exception as e:  # noqa: BLE001
+        # Most often: gemini live websocket idle-timed-out. Print a one-line
+        # friendly message instead of dumping a 30-line stack.
+        msg = str(e)
+        if "keepalive" in msg or "ConnectionClosed" in type(e).__name__:
+            print(
+                "\n[war-room] Gemini Live disconnected (idle timeout). "
+                "Re-run ./companion/war-room/run.sh to reconnect.",
+                flush=True,
+            )
+            sys.exit(1)
+        raise
 
 
 if __name__ == "__main__":
