@@ -4,7 +4,15 @@ import { useEffect, useState, useCallback } from "react";
 import type { AgentRegistryEntry, SkillRegistryEntry } from "@/types/db";
 import { Header } from "@/components/Header";
 
-type Tab = "agents" | "skills";
+type Tab = "personas" | "agents" | "skills";
+
+interface Persona {
+  role: string;
+  title: string;
+  model: string;
+  department: string;
+  personality: string;
+}
 
 const AGENT_STATUS_META: Record<string, string> = {
   permanent: "bg-emerald-500/20 text-emerald-300",
@@ -20,23 +28,36 @@ const SKILL_STATUS_META: Record<string, string> = {
   archived: "bg-gray-500/20 text-gray-300",
 };
 
+const ROLE_EMOJI: Record<string, string> = {
+  main: "🧠",
+  research: "🔍",
+  comms: "📣",
+  content: "✍️",
+  ops: "⚙️",
+  legal: "⚖️",
+  dev: "🛠️",
+};
+
 export default function RegistryPage() {
+  const [personas, setPersonas] = useState<Persona[]>([]);
   const [agents, setAgents] = useState<AgentRegistryEntry[]>([]);
   const [skills, setSkills] = useState<SkillRegistryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("agents");
+  const [tab, setTab] = useState<Tab>("personas");
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [a, s] = await Promise.all([
+      const [p, a, s] = await Promise.all([
+        fetch("/api/agents/personas").then((r) => r.json()),
         fetch("/api/registry/agents").then((r) => r.json()),
         fetch("/api/registry/skills").then((r) => r.json()),
       ]);
       if (a.error) throw new Error(a.error);
       if (s.error) throw new Error(s.error);
+      setPersonas(p.personas ?? []);
       setAgents(a.agents ?? []);
       setSkills(s.skills ?? []);
     } catch (e: unknown) {
@@ -62,6 +83,12 @@ export default function RegistryPage() {
 
         <div className="flex gap-0.5 border-b border-card-border mb-4 -mb-px">
           <button
+            onClick={() => setTab("personas")}
+            className={`px-4 py-3 text-sm border-b-2 ${tab === "personas" ? "border-accent text-accent font-medium" : "border-transparent text-muted hover:text-foreground"}`}
+          >
+            Personas ({personas.length})
+          </button>
+          <button
             onClick={() => setTab("agents")}
             className={`px-4 py-3 text-sm border-b-2 ${tab === "agents" ? "border-accent text-accent font-medium" : "border-transparent text-muted hover:text-foreground"}`}
           >
@@ -77,6 +104,30 @@ export default function RegistryPage() {
 
         {loading ? (
           <div className="text-muted text-sm">Loading registry...</div>
+        ) : tab === "personas" ? (
+          <div className="space-y-3">
+            {personas.length === 0 ? (
+              <div className="text-muted text-sm p-8 text-center border border-dashed border-card-border rounded">No agent prompts found.</div>
+            ) : personas.map((p) => (
+              <div key={p.role} className="p-4 rounded border border-card-border bg-card/50">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="text-2xl">{ROLE_EMOJI[p.role] ?? "🤖"}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-base font-semibold">{p.title}</span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-accent/20 text-accent">{p.role}</span>
+                    </div>
+                    <div className="text-[11px] text-muted font-mono mt-0.5">{p.model}</div>
+                  </div>
+                </div>
+                {p.personality ? (
+                  <p className="text-sm leading-relaxed text-foreground/85 whitespace-pre-wrap">{p.personality}</p>
+                ) : (
+                  <p className="text-sm text-muted italic">No personality block defined yet.</p>
+                )}
+              </div>
+            ))}
+          </div>
         ) : tab === "agents" ? (
           <div className="space-y-1.5">
             {agents.length === 0 ? (

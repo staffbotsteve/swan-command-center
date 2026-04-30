@@ -9,6 +9,11 @@ interface Agent {
   model: string;
 }
 
+interface ProjectOption {
+  project: string;
+  company: string | null;
+}
+
 export function DispatchPanel({
   agents,
   selectedAgent,
@@ -18,13 +23,24 @@ export function DispatchPanel({
 }) {
   const [agentId, setAgentId] = useState("auto");
   const [task, setTask] = useState("");
+  const [project, setProject] = useState("");
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [running, setRunning] = useState(false);
   const [output, setOutput] = useState("");
   const [autoAssign, setAutoAssign] = useState<{ role: string; reason: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
 
+  // Load distinct projects once when the panel mounts.
+  useEffect(() => {
+    fetch("/api/projects")
+      .then((r) => r.json())
+      .then((d) => setProjects(d.projects ?? []))
+      .catch(() => {});
+  }, []);
+
   const effectiveAgentId = selectedAgent?.id ?? agentId;
+  const selectedProject = projects.find((p) => p.project === project);
 
   useEffect(() => {
     if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight;
@@ -46,6 +62,8 @@ export function DispatchPanel({
           agentId: effectiveAgentId,
           role: selectedAgent?.role,
           task: task.trim(),
+          project: project || undefined,
+          company: selectedProject?.company || undefined,
         }),
       });
       const data = await res.json();
@@ -94,7 +112,29 @@ export function DispatchPanel({
           Dispatch Task
         </h2>
 
+        <div className="mb-2">
+          <label className="text-[11px] uppercase tracking-wider text-muted block mb-1">Project</label>
+          <select
+            value={project}
+            onChange={(e) => setProject(e.target.value)}
+            className="w-full bg-card border border-card-border rounded px-3 py-2 text-sm focus:outline-none focus:border-accent"
+          >
+            <option value="">— No project (general) —</option>
+            {projects.map((p) => (
+              <option key={p.project} value={p.project}>
+                {p.project}{p.company ? ` · ${p.company}` : ""}
+              </option>
+            ))}
+          </select>
+          {selectedProject && (
+            <p className="text-[11px] text-muted mt-1">
+              Task will inject <code>01-Projects/{selectedProject.project.split("-").map(s => s[0]?.toUpperCase()+s.slice(1)).join("-")}/CONTEXT.md</code> into the agent's prompt.
+            </p>
+          )}
+        </div>
+
         <div className="mb-3">
+          <label className="text-[11px] uppercase tracking-wider text-muted block mb-1">Agent</label>
           <select
             value={effectiveAgentId}
             onChange={(e) => setAgentId(e.target.value)}
