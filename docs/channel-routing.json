@@ -215,6 +215,13 @@
       "agent_role": "main",
       "notes": "#6040-n-camelback — Real estate (active)",
       "project": "6040-n-camelback"
+    },
+    {
+      "channel": "slack",
+      "external_id": "C0B0NFA1MA9",
+      "agent_role": "main",
+      "project": "war-room",
+      "notes": "#war-room — Voice channel: hands-free Gemini Live agent with hive_query/vault_read/slack_send tools"
     }
   ]
 }
