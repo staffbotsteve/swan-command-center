@@ -9,6 +9,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/hive",      label: "Hive" },
   { href: "/memory",    label: "Memory" },
   { href: "/registry",  label: "Registry" },
+  { href: "/war-room",  label: "War Room" },
   { href: "/assistant", label: "Assistant" },
 ];
 
